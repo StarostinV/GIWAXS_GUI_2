@@ -221,8 +221,8 @@ class RoiDict(QObject):
         d = self._default_params()
         d.update(params)
         if radius and width:
-            params.update(radius=radius, width=width)
-        roi = self._roi_data.create_roi(**params)
+            d.update(radius=radius, width=width)
+        roi = self._roi_data.create_roi(**d)
         self.sig_roi_created.emit((roi.key,))
         if roi.active:
             self._emit_select((roi.key,))
