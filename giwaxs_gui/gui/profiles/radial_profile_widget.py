@@ -3,7 +3,6 @@
 import logging
 
 from scipy.signal import find_peaks
-from scipy.optimize import curve_fit
 
 from PyQt5.QtGui import QColor
 
@@ -14,6 +13,7 @@ from ...app.app import App
 from ..tools import Icon
 from ..roi_widgets.abstract_roi_holder import AbstractRoiHolder
 from ..roi_widgets.roi_1d_widget import Roi1D
+from ..tools import show_error
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,13 @@ class RadialProfileWidget(AbstractRoiHolder, Smooth1DPlot):
         if self._fit_params_dict.get('sigma_find', None) is not None:
             self.set_sigma(self._fit_params_dict['sigma_find'])
         peaks = find_peaks(self.y)[0]
-        if len(peaks) > self._fit_params_dict.get('max_peaks_number', 40):
+        max_num = self._fit_params_dict.get('max_peaks_number', 40)
+        if len(peaks) > max_num:
+            show_error(
+                'Maximum number of peaks exceeded.',
+                error_title='Error',
+                info_text=f'Number of found peaks ({len(peaks)}) exceeds the maximum number {max_num}. '
+                          f'Consider increasing sigma for smoothing the radial profile.')
             return
         w = self._fit_params_dict.get('init_width', 30)
         for r in peaks:
