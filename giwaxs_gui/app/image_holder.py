@@ -1,0 +1,155 @@
+import logging
+from typing import List
+from copy import deepcopy
+
+import numpy as np
+
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject
+
+from .rois.roi_dict import RoiDict, Roi
+from .geometry import Geometry
+from .geometry_holder import GeometryHolder
+from .polar_image import PolarImage, InterpolationParams
+from .file_manager import FileManager, ImageKey
+from .fitting import GaussianFit
+
+logger = logging.getLogger(__name__)
+
+
+class ImageHolder(QObject):
+    sigImageChanged = pyqtSignal()
+    sigPolarImageChanged = pyqtSignal()
+    sigFitOpen = pyqtSignal(object)
+
+    log = logging.getLogger(__name__)
+
+    def __init__(self, fm: FileManager, g_holder: GeometryHolder, roi_dict: RoiDict):
+        QObject.__init__(self)
+        self._fm = fm
+        self._roi_dict = roi_dict
+        self._image = self._raw_image = None
+        self._current_key: ImageKey = None
+        self._polar_image = PolarImage()
+        self._g_holder = g_holder
+
+        self._roi_dict.sigFitRoisOpen.connect(self.open_fit_rois)
+        self._g_holder.sigPolarGeometryChanged.connect(self._update_polar_image)
+        self._g_holder.sigGeometryChangeFinished.connect(self._update_polar_image)
+        self._g_holder.sigTransformed.connect(self._update_image)
+
+    @property
+    def image(self) -> np.ndarray or None:
+        return self._image
+
+    @property
+    def raw_image(self) -> np.ndarray or None:
+        return self._raw_image
+
+    @property
+    def polar(self) -> PolarImage:
+        return self._polar_image
+
+    @property
+    def polar_image(self) -> np.ndarray or None:
+        return self._polar_image.polar_image
+
+    @property
+    def polar_params(self) -> InterpolationParams:
+        return self._polar_image.polar_params
+
+    @property
+    def g_holder(self) -> GeometryHolder:
+        return self._g_holder
+
+    @property
+    def geometry(self) -> Geometry:
+        return self.g_holder.geometry
+
+    @pyqtSlot(object, name='changeImage')
+    def change_image(self, image_key: ImageKey):
+        if self._current_key == image_key:
+            return
+        self._current_key = image_key
+
+        self._roi_dict.save_and_clear()
+
+        image = self._fm.images[image_key]
+        polar_image = self._fm.polar_images[image_key]
+        prev_geometry = self.geometry
+
+        self._raw_image = image
+        self._image = self.g_holder.change_image(image_key, image)
+        self._update_polar_image(polar_image, False)
+
+        if self.geometry.beam_center != prev_geometry.beam_center:
+            self.g_holder.sigBeamCenterChanged.emit()
+        if self.geometry.scale != prev_geometry.scale:
+            self.g_holder.sigScaleChanged.emit()
+
+        self.sigImageChanged.emit()
+        self.sigPolarImageChanged.emit()
+
+        self.g_holder.check_ring_bounds()
+        self._roi_dict.change_image(image_key)
+
+    def get_polar_image(self, image_key: ImageKey, save: bool = False):
+        polar_image = self._fm.polar_images[image_key]
+        if polar_image is not None:
+            return polar_image
+        image = self._fm.images[image_key]
+        geometry = self.g_holder.get_geometry(image_key)
+        image = geometry.t(image)
+        if geometry.shape != image.shape:
+            geometry.set_shape(image.shape)
+        yy, zz = geometry.polar_grids
+        polar_image = self.polar.calc_polar_image(image, yy, zz, self.polar_params.algorithm)
+        if save:
+            self._fm.polar_images[image_key] = polar_image
+        return polar_image
+
+    # def set_image(self, img: np.ndarray, polar_image: np.ndarray = None):
+    #     self._raw_image = img
+    #     self._update_image()
+    #     self.update_polar_image(polar_image)
+
+    def _update_polar_image(self, polar_image=None, emit: bool = True):
+        if polar_image is not None:
+            self._polar_image.set_polar_image(polar_image)
+        else:
+            self._polar_image.update(self.geometry, self.image)
+        if emit:
+            self.sigPolarImageChanged.emit()
+
+    def _update_image(self, polar_image: np.ndarray = None, emit: bool = True) -> None:
+        if self.raw_image is None:
+            return
+        old_shape = self.image.shape if self.image is not None else None
+        self._image = self.g_holder.transform_image(self._raw_image)
+        if old_shape != self.image.shape:
+            self.g_holder.set_shape(self.image.shape)
+        self._update_polar_image(polar_image, emit=emit)
+        if emit:
+            self.sigImageChanged.emit()
+
+    def get_radial_profile(self) -> np.ndarray or None:
+        return self.polar.get_radial_profile()
+
+    def get_angular_profile(self, key: int) -> np.ndarray or None:
+        if key is None:
+            try:
+                roi = self._roi_dict.selected_rois[0]
+            except IndexError:
+                return
+        else:
+            roi = self._roi_dict[key]
+
+        return self.polar.get_angular_profile(self.geometry, roi)
+
+    @pyqtSlot(list, name='openFitRois')
+    def open_fit_rois(self, rois: List[Roi]):
+        g_fit = GaussianFit(self._current_key, self.polar_image,
+                            self.geometry.r_axis, self.geometry.phi_axis)
+        for roi in rois:
+            g_fit.add(roi)
+        self.sigFitOpen.emit(g_fit)
+
