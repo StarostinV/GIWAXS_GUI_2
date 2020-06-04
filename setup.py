@@ -24,8 +24,9 @@ setup(
             'scipy>=1.4.1.',
             'h5py>=2.10.0',
             'PyQ5',
-            'pyqtgraph',
+            'pyqtgraph==0.11.0rc0',
             'read_edf',
+            'Pillow'
             ],
         include_package_data=True,
         keywords='xray python giwaxs scientific-analysis',
