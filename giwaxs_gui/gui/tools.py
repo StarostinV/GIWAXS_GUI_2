@@ -13,12 +13,16 @@ CSS_PATH: Path = Path(__file__).parents[1] / 'static' / 'css'
 logger = logging.getLogger(__name__)
 
 
-def show_error(err: str, error_title: str):
+def show_error(err: str, *, error_title: str, info_text: str = ''):
+    logger.info(f'Error message shown: {error_title} - {err} {info_text}.')
+
     mb = QMessageBox()
+    mb.setIcon(QMessageBox.Critical)
     mb.setWindowTitle(error_title)
-    logger.info(f'Error message shown: {err}.')
     mb.setWindowIcon(Icon('error'))
     mb.setText(err)
+    if info_text:
+        mb.setInformativeText(info_text)
     mb.exec_()
 
 
