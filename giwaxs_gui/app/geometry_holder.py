@@ -1,4 +1,5 @@
 from typing import Tuple
+import logging
 
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject
 
@@ -17,6 +18,8 @@ class GeometryHolder(QObject):
     sigScaleChanged = pyqtSignal()
     sigRingBoundsChanged = pyqtSignal(tuple)
 
+    log = logging.getLogger(__name__)
+
     def __init__(self, fm: FileManager):
         QObject.__init__(self)
         self._fm = fm
@@ -29,6 +32,8 @@ class GeometryHolder(QObject):
         return self.geometry.t(raw_image)
 
     def add_transform(self, op: Transformation):
+        if not self._current_geometry:
+            self._current_geometry = self.geometry.copy()
         self.geometry.t.add(op)
         self.sigTransformed.emit()
 
@@ -65,15 +70,20 @@ class GeometryHolder(QObject):
             self._fm.geometries.default[self._current_key] = self._current_geometry
             del self._fm.geometries[self._current_key]
             self._current_geometry = None
+            self.log.info('Geometry saved as default.')
+
+        self.log.info('Geometry not saved (default used)')
 
     def save_state(self):
         if not (self._current_key and self._current_geometry):
+            self.log.info('Geometry not saved (default used)')
             return
 
         if not self._fm.geometries.default.exists(self._current_key):
             self.save_as_default()
         elif self._current_geometry != self._default_geometry:
             self._fm.geometries[self._current_key] = self._current_geometry
+            self.log.info('Non-default geometry saved')
 
     @pyqtSlot(tuple, bool, name='changeBeamCenter')
     def set_beam_center(self, beam_center: tuple, finished: bool = True):

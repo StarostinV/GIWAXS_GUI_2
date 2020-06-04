@@ -3,7 +3,7 @@ import logging
 
 from PyQt5.QtWidgets import (QSlider, QLineEdit, QHBoxLayout,
                              QLabel, QWidgetAction, QMenu)
-from PyQt5.QtGui import QIntValidator
+from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt, pyqtSignal
 
 from .buttons import RoundedPushButton
@@ -330,3 +330,209 @@ class ControlSlider(AnimatedSlider):
     def on_clicked(self):
         if not self._fixed:
             AnimatedSlider.on_clicked(self)
+
+
+
+class ParametersSlider(QWidget):
+
+    sigLowerValueChanged = pyqtSignal(float)
+    sigMiddleValueChanged = pyqtSignal(float)
+    sigUpperValueChanged = pyqtSignal(float)
+
+    _rect_width = 30
+    _rect_height = 30
+    _padding = 30
+    _slider_width = 5
+
+    _path_color = QColor('black')
+    _rect_color = QColor(100, 100, 255)
+
+
+    def __init__(self, x1=0.2, x2 =0.7, x3 =0.9, 
+                 min_value = 0, max_value = 1, parent=None):
+        super().__init__(parent=parent)
+
+        # self.setMouseTracking(True)
+        self.setSizePolicy(
+            QSizePolicy.MinimumExpanding,
+            QSizePolicy.Maximum
+            )
+
+        self._pressed: int = 0
+
+        self._min_value = min_value
+        self._max_value = max_value
+
+        self._x1 = x1
+        self._x2 = x2
+        self._x3 = x3
+
+
+    def setValues(self, x1, x2, x3, *, adjust_range: bool = False, new_range: tuple = None):
+        if x1 <= x2 <= x3:
+            if adjust_range:
+                self._min_value = min(self._min_value, x1)
+                self._max_value = max(self._max_value, x3)
+            elif new_range:
+                self._min_value, self._max_value = new_range
+                if self._min_value >= self._max_value:
+                    raise ValueError('Wrong range.')
+
+            if x1 < self._min_value or x3 > self._max_value:
+                raise ValueError('Out of range.')
+
+            self._x1 = x1
+            self._x2 = x2
+            self._x3 = x3
+
+            self.update()
+
+        else:
+            raise ValueError('Wrong order.')
+
+    def sizeHint(self):
+        return QSize(50, 100)
+
+    def mousePressEvent(self, ev):
+        if ev.button() == Qt.RightButton:
+            ev.ignore()
+        else:
+            x = ev.pos().x()
+            self._pressed = self._get_idx(x)
+
+            if self._pressed:
+                ev.accept()
+            else:
+                ev.ignore()
+
+    def mouseReleaseEvent(self, ev):
+        if self._pressed:
+            ev.accept()
+            self._pressed = 0
+        else:
+            ev.ignore()
+
+
+    def mouseMoveEvent(self, ev):
+        if not self._pressed:
+            # idx = self._get_idx(ev.pos().x())
+            # if idx:
+            #     print('Hover: ', idx)
+            #     ev.accept()
+            # else:
+            ev.ignore()
+
+        else:
+            x = ev.pos().x()
+            bounds = self._get_bounds(self._pressed)
+
+            if x < bounds[0]:
+                self._set_value(bounds[0])
+            elif x > bounds[1]:
+                self._set_value(bounds[1])
+            else:
+                self._set_value(x)
+
+
+    def _get_idx(self, x):
+        w = self._rect_width / 2
+
+        if abs(self._x1_view - x) <= w:
+            return 1
+        elif abs(self._x2_view - x) <= w:
+            return 2
+        elif abs(self._x3_view - x) <= w:
+            return 3
+        else:
+            return 0
+
+
+    def _get_bounds(self, idx: int):
+        if not idx:
+            return
+        w = self._rect_width
+
+        if idx == 1:
+            return self._padding, self._x2_view - w
+        elif idx == 2:
+            return self._x1_view + w, self._x3_view - w
+        else:
+            return self._x2_view + w, self.width() - self._padding
+
+    def _set_value(self, x):
+        idx = self._pressed
+        if not idx:
+            return
+
+        value = self._scale_from_view(x, idx)
+
+        if idx == 1 and value != self._x1:
+            self._x1 = value
+            self.sigLowerValueChanged.emit(self._x1)
+            self.update()
+        elif idx == 2 and value != self._x2:
+            self._x2 = value
+            self.sigMiddleValueChanged.emit(self._x2)
+            self.update()
+        elif idx == 3 and value != self._x3:
+            self._x3 = value
+            self.sigUpperValueChanged.emit(self._x3)
+            self.update()
+            
+
+    def paintEvent(self, ev):
+
+        p = QPainter(self)
+
+        self._x1_view = self._scale_to_view(self._x1, 1)
+        self._x2_view = self._scale_to_view(self._x2, 2)
+        self._x3_view = self._scale_to_view(self._x3, 3)
+
+        p.setRenderHint(QPainter.Antialiasing)
+
+        self._draw_slider(p)
+        self._draw_rect(self._x1_view, p)
+        self._draw_rect(self._x2_view, p)
+        self._draw_rect(self._x3_view, p)
+
+        p.end()
+
+    def _draw_slider(self, p: QPainter):
+        path = QPainterPath()
+        path.addRoundedRect(
+            QRectF(self._padding, self.height() / 2 - self._slider_width / 2, 
+                   self.width() - self._padding * 2, self._slider_width),
+            3, 3)
+        pen = QPen(self._path_color, 2)
+        p.setPen(pen)
+        p.fillPath(path, self._rect_color)
+        p.drawPath(path)
+
+    def _draw_rect(self, x: float, p: QPainter):
+        path = QPainterPath()
+        path.addRoundedRect(
+            QRectF(x - self._rect_width / 2,
+             self.height() / 2 - self._rect_height / 2, 
+                self._rect_width, self._rect_height),
+            5, 5)
+        pen = QPen(self._path_color, 2)
+        p.setPen(pen)
+        p.fillPath(path, self._rect_color)
+        p.drawPath(path)
+
+    @property
+    def _length(self):
+        return self.width() - 2 * self._padding - 2 * self._rect_width
+
+    @property
+    def _range(self):
+        return self._max_value - self._min_value
+    
+
+    def _scale_to_view(self, x, idx: int):
+        return self._padding + self._rect_width * (idx - 1) +\
+         (x - self._min_value) / self._range * self._length
+
+    def _scale_from_view(self, x, idx: int):
+        return self._min_value + (x - self._padding - self._rect_width * (idx - 1)) * \
+              self._range / self._length

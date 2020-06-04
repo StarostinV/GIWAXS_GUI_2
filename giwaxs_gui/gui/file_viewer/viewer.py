@@ -26,6 +26,9 @@ class FileModel(QStandardItemModel):
         self.setHorizontalHeaderLabels([''])
         self.setRowCount(0)
 
+    def new_project(self):
+        self.removeRows(1, self.rowCount() - 1)
+
 
 class ImageItem(QStandardItem):
 
@@ -72,16 +75,16 @@ class FileViewer(QTreeView):
         self._fm = fm
         self._fm.sigNewFile.connect(self._add_new_file)
         self._fm.sigNewFolder.connect(self._add_new_folder)
-        self._fm.sigProjectClosed.connect(self._model.clear)
+        self._fm.sigProjectClosed.connect(self._model.new_project)
         # self._fm.sigExSituAddedFile.connect(self._add_ex_situ)
         # self._fm.sigPathsChanged.connect(self._update_paths)
         self.selectionModel().currentChanged.connect(self._on_clicked)
         self.customContextMenuRequested.connect(self._context_menu)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.__init_ui()
+        self._init_ui()
         self.show()
 
-    def __init_ui(self):
+    def _init_ui(self):
         add_file_button = RoundedPushButton(icon=Icon('data'), radius=30,
                                             background_color='transparent')
         add_file_button.clicked.connect(self._open_add_file_menu)
