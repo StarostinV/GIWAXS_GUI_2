@@ -156,5 +156,6 @@ class FileViewer(QTreeView):
         menu.exec_(self.viewport().mapToGlobal(position))
 
     def _remove_item(self, item: FolderItem or ImageItem):
+        parent = item.parent() or self._model
+        parent.removeRow(item.row())
         self._fm.remove_path(item.path)
-        item.parent().removeRow(item.row())
