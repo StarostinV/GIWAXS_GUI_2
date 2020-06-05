@@ -1,6 +1,6 @@
 import logging
 from typing import List
-from copy import deepcopy
+from datetime import datetime as dt
 
 import numpy as np
 
@@ -12,8 +12,6 @@ from .geometry_holder import GeometryHolder
 from .polar_image import PolarImage, InterpolationParams
 from .file_manager import FileManager, ImageKey
 from .fitting import GaussianFit
-
-logger = logging.getLogger(__name__)
 
 
 class ImageHolder(QObject):
