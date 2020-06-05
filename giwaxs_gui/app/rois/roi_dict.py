@@ -251,7 +251,7 @@ class RoiDict(QObject):
     @pyqtSlot(int, str, name='moveRoi')
     def move_roi(self, key: int, name: str):
         self.select(key)
-        self.sig_roi_moved.emit((key, ), name)
+        self.sig_roi_moved.emit((key,), name)
         angle, angle_std = self.ring_bounds
         roi = self[key]
         if roi.type == RoiTypes.ring and (roi.angle != angle or roi.angle_std != angle_std):
@@ -328,3 +328,18 @@ class RoiDict(QObject):
                 roi.active = False
                 roi.movable = True
             self.sigFitRoisOpen.emit(rois)
+
+    def apply_fit(self, rois: List[Roi], image_key: ImageKey):
+
+        if self._current_key == image_key:
+            keys_to_create, keys_to_move = self._roi_data.apply_fit(rois)
+            self.sig_roi_created.emit(keys_to_create)
+            self.sig_roi_moved.emit(keys_to_move, self.EMIT_NAME)
+            self.sig_fixed.emit(keys_to_move)
+
+        else:
+            roi_data = self._fm.rois_data[image_key] or RoiData()
+            roi_data.apply_fit(rois)
+            self._fm.rois_data[image_key] = roi_data
+
+

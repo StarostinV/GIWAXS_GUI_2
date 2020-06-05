@@ -20,6 +20,7 @@ class ImageHolder(QObject):
     sigImageChanged = pyqtSignal()
     sigPolarImageChanged = pyqtSignal()
     sigFitOpen = pyqtSignal(object)
+    sigFitSaved = pyqtSignal(tuple)
 
     log = logging.getLogger(__name__)
 
@@ -152,4 +153,14 @@ class ImageHolder(QObject):
         for roi in rois:
             g_fit.add(roi)
         self.sigFitOpen.emit(g_fit)
+
+    @pyqtSlot(object, name='applyFit')
+    def apply_fit(self, g_fit: GaussianFit):
+        name = dt.now().ctime()
+        g_fit.name = name
+        self._fm.fits[g_fit.image_key, name] = g_fit
+
+        self._roi_dict.apply_fit([fit.roi for fit in g_fit.fits.values()], g_fit.image_key)
+
+        self.sigFitSaved.emit((g_fit.image_key, name))
 
