@@ -21,8 +21,12 @@ class Roi1D(AbstractRoiWidget, LinearRegionItem):
     _INACTIVE_Z = 5
     _FIXED_Z = -30
 
-    def __init__(self, roi: Roi):
-        AbstractRoiWidget.__init__(self, roi)
+    def __init__(self, roi: Roi, enable_context: bool = True):
+        if enable_context:
+            context_menu_func = RadialProfileContextMenu
+        else:
+            context_menu_func = None
+        AbstractRoiWidget.__init__(self, roi, context_menu_func)
         LinearRegionItem.__init__(self)
         self.sigRegionChanged.connect(self.roi_is_moving)
         self.update_roi()
@@ -89,9 +93,6 @@ class Roi1D(AbstractRoiWidget, LinearRegionItem):
             ev.ignore()
 
         self.viewRangeChanged()
-
-    def show_context_menu(self, ev):
-        RadialProfileContextMenu(self.roi)
 
     def update_select(self):
         super().update_select()

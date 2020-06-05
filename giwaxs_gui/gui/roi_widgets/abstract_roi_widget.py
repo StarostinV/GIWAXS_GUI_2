@@ -24,8 +24,9 @@ def _color_key(roi: Roi) -> str:
 class AbstractRoiWidget(object):
     BRIGHT_COLOR: bool = True
 
-    def __init__(self, roi: Roi):
+    def __init__(self, roi: Roi, context_menu_func=None):
         self._roi = roi
+        self._context_menu_func = context_menu_func
 
     def update_color(self):
         color = COLOR_DICT[_color_key(self.roi)]
@@ -58,6 +59,10 @@ class AbstractRoiWidget(object):
     @abstractmethod
     def set_color(self, color):
         pass
+
+    def show_context_menu(self, *args):
+        if self._context_menu_func:
+            self._context_menu_func(self.roi)
 
     def update_select(self):
         self.update_color()

@@ -12,8 +12,12 @@ class Roi2DRect(AbstractRoiWidget, RectROI):
     sigSelected = pyqtSignal(int)
     sigShiftSelected = pyqtSignal(int)
 
-    def __init__(self, roi: Roi):
-        AbstractRoiWidget.__init__(self, roi)
+    def __init__(self, roi: Roi, enable_context: bool = True):
+        if enable_context:
+            context_menu_func = RoiContextMenu
+        else:
+            context_menu_func = None
+        AbstractRoiWidget.__init__(self, roi, context_menu_func)
         RectROI.__init__(self, pos=(0, 0), size=(1, 1))
         self.handle = self.handles[0]['item']
         self.sigRegionChanged.connect(self._handle_is_moving)
@@ -65,9 +69,6 @@ class Roi2DRect(AbstractRoiWidget, RectROI):
             # self.change_active()
             ev.accept()
             self.sigSelected.emit(self.roi.key)
-
-    def show_context_menu(self, ev):
-        RoiContextMenu(self.roi)
 
     def fix(self):
         super().fix()
