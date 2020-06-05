@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
-from typing import List, Dict
+from typing import List, Dict, Iterable
 
 from PyQt5.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel, QFrame, QSplitter
 from PyQt5.QtGui import QPen, QColor
@@ -38,7 +38,7 @@ class FitWidget(QWidget):
         self.polar_viewer = CustomImageViewer(parent=self)
         self.radial_viewer = RadialFitWidget(parent=self)
         self.fit_plot = FitPlot(parent=self)
-        self.sliders_widget = SlidersWidget(self.g_fit.fits[0], self)
+        self.sliders_widget = SlidersWidget(self.g_fit.PARAM_NAMES, self)
         self.fit_button = QPushButton('Fit')
         self.fit_button.clicked.connect(self._fit_clicked)
         self.apply_button = QPushButton('Apply')
@@ -140,8 +140,6 @@ class FitWidget(QWidget):
         self.sliders_widget.update_values()
 
     def _fit(self):
-        self.fit_plot.remove_fit()
-        self.radial_viewer.remove_fit()
         self.g_fit.do_fit()
 
         if self._selected_fit:
@@ -195,18 +193,18 @@ class SliderWithLabels(QFrame):
 class SlidersWidget(QWidget):
     sigValueChanged = pyqtSignal()
 
-    def __init__(self, fit: Fit, parent=None):
+    def __init__(self, param_names: Iterable[str], parent=None):
         super().__init__(parent=parent)
-        self.fit: Fit = fit
-        self._init_ui()
+        self.fit: Fit = None
+        self._init_ui(param_names)
 
-    def _init_ui(self):
+    def _init_ui(self, param_names):
         layout = QGridLayout(self)
 
         self._sliders: Dict[int, ParametersSlider] = {}
         self._labels: Dict[int, QLabel] = {}
 
-        for i, param_name in enumerate(self.fit.param_names):
+        for i, param_name in enumerate(param_names):
             layout.addWidget(QLabel(param_name), i, 0, alignment=Qt.AlignCenter)
             self._sliders[i] = sl = ParametersSlider()
             self._labels[i] = ll = QLabel('lower bound; init value; upper bound')
@@ -214,8 +212,6 @@ class SlidersWidget(QWidget):
             sl.sigLowerValueChanged.connect(lambda x, idx=i: self._send_value(x, 0, idx))
             sl.sigMiddleValueChanged.connect(lambda x, idx=i: self._send_value(x, 1, idx))
             sl.sigUpperValueChanged.connect(lambda x, idx=i: self._send_value(x, 2, idx))
-
-        self.fit = None
 
     def set_fit(self, fit: Fit):
         self.fit = fit
