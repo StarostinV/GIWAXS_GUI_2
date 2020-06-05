@@ -2,9 +2,11 @@
 import logging
 
 from PyQt5.QtWidgets import (QSlider, QLineEdit, QHBoxLayout,
-                             QLabel, QWidgetAction, QMenu)
-from PyQt5.QtGui import *
-from PyQt5.QtCore import Qt, pyqtSignal
+                             QLabel, QWidgetAction, QMenu,
+                             QSizePolicy, QWidget)
+from PyQt5.QtGui import (QPainter, QPainterPath, QPen,
+                         QColor, QIntValidator)
+from PyQt5.QtCore import Qt, pyqtSignal, QSize, QRectF
 
 from .buttons import RoundedPushButton
 
@@ -332,31 +334,28 @@ class ControlSlider(AnimatedSlider):
             AnimatedSlider.on_clicked(self)
 
 
-
 class ParametersSlider(QWidget):
-
     sigLowerValueChanged = pyqtSignal(float)
     sigMiddleValueChanged = pyqtSignal(float)
     sigUpperValueChanged = pyqtSignal(float)
 
-    _rect_width = 30
-    _rect_height = 30
+    _rect_width = 10
+    _rect_height = 20
     _padding = 30
     _slider_width = 5
 
-    _path_color = QColor('black')
+    # _path_color = QColor('black')
     _rect_color = QColor(100, 100, 255)
 
-
-    def __init__(self, x1=0.2, x2 =0.7, x3 =0.9, 
-                 min_value = 0, max_value = 1, parent=None):
+    def __init__(self, x1=0., x2=0.5, x3=0.1,
+                 min_value=0, max_value=1, parent=None):
         super().__init__(parent=parent)
 
         # self.setMouseTracking(True)
         self.setSizePolicy(
             QSizePolicy.MinimumExpanding,
             QSizePolicy.Maximum
-            )
+        )
 
         self._pressed: int = 0
 
@@ -367,7 +366,6 @@ class ParametersSlider(QWidget):
         self._x2 = x2
         self._x3 = x3
 
-
     def setValues(self, x1, x2, x3, *, adjust_range: bool = False, new_range: tuple = None):
         if x1 <= x2 <= x3:
             if adjust_range:
@@ -375,7 +373,7 @@ class ParametersSlider(QWidget):
                 self._max_value = max(self._max_value, x3)
             elif new_range:
                 self._min_value, self._max_value = new_range
-                if self._min_value >= self._max_value:
+                if self._min_value > self._max_value:
                     raise ValueError('Wrong range.')
 
             if x1 < self._min_value or x3 > self._max_value:
@@ -412,7 +410,6 @@ class ParametersSlider(QWidget):
         else:
             ev.ignore()
 
-
     def mouseMoveEvent(self, ev):
         if not self._pressed:
             # idx = self._get_idx(ev.pos().x())
@@ -433,7 +430,6 @@ class ParametersSlider(QWidget):
             else:
                 self._set_value(x)
 
-
     def _get_idx(self, x):
         w = self._rect_width / 2
 
@@ -445,7 +441,6 @@ class ParametersSlider(QWidget):
             return 3
         else:
             return 0
-
 
     def _get_bounds(self, idx: int):
         if not idx:
@@ -478,7 +473,6 @@ class ParametersSlider(QWidget):
             self._x3 = value
             self.sigUpperValueChanged.emit(self._x3)
             self.update()
-            
 
     def paintEvent(self, ev):
 
@@ -500,11 +494,11 @@ class ParametersSlider(QWidget):
     def _draw_slider(self, p: QPainter):
         path = QPainterPath()
         path.addRoundedRect(
-            QRectF(self._padding, self.height() / 2 - self._slider_width / 2, 
+            QRectF(self._padding, self.height() / 2 - self._slider_width / 2,
                    self.width() - self._padding * 2, self._slider_width),
             3, 3)
-        pen = QPen(self._path_color, 2)
-        p.setPen(pen)
+        # pen = QPen(self._path_color, 2)
+        # p.setPen(pen)
         p.fillPath(path, self._rect_color)
         p.drawPath(path)
 
@@ -512,11 +506,11 @@ class ParametersSlider(QWidget):
         path = QPainterPath()
         path.addRoundedRect(
             QRectF(x - self._rect_width / 2,
-             self.height() / 2 - self._rect_height / 2, 
-                self._rect_width, self._rect_height),
-            5, 5)
-        pen = QPen(self._path_color, 2)
-        p.setPen(pen)
+                   self.height() / 2 - self._rect_height / 2,
+                   self._rect_width, self._rect_height),
+            1, 1)
+        # pen = QPen(self._path_color, 2)
+        # p.setPen(pen)
         p.fillPath(path, self._rect_color)
         p.drawPath(path)
 
@@ -527,12 +521,11 @@ class ParametersSlider(QWidget):
     @property
     def _range(self):
         return self._max_value - self._min_value
-    
 
     def _scale_to_view(self, x, idx: int):
-        return self._padding + self._rect_width * (idx - 1) +\
-         (x - self._min_value) / self._range * self._length
+        return self._padding + self._rect_width * (idx - 1) + \
+               (x - self._min_value) / self._range * self._length
 
     def _scale_from_view(self, x, idx: int):
         return self._min_value + (x - self._padding - self._rect_width * (idx - 1)) * \
-              self._range / self._length
+               self._range / self._length
