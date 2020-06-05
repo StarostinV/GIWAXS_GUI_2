@@ -4,8 +4,7 @@ import logging
 from PyQt5.QtWidgets import (QSlider, QLineEdit, QHBoxLayout,
                              QLabel, QWidgetAction, QMenu,
                              QSizePolicy, QWidget)
-from PyQt5.QtGui import (QPainter, QPainterPath, QPen,
-                         QColor, QIntValidator)
+from PyQt5.QtGui import QPainter, QPainterPath, QColor, QIntValidator
 from PyQt5.QtCore import Qt, pyqtSignal, QSize, QRectF
 
 from .buttons import RoundedPushButton
@@ -17,11 +16,12 @@ logger = logging.getLogger(__name__)
 
 class DoubleSlider(QSlider):
     valueChangedByHand = pyqtSignal(float)
+    _MAX_INT = int(1e9)
 
-    def __init__(self, *args, decimals: int = 5):
-        super().__init__(*args)
+    def __init__(self, orientation=Qt.Horizontal, parent=None, decimals: int = 5,
+                 value: float = 0, bounds: tuple = (0, 1)):
+        super().__init__(orientation=orientation, parent=parent)
         self.decimals = decimals
-        self._max_int = 10 ** self.decimals
         self._pressed = False
         self.sliderPressed.connect(self._set_pressed)
         self.sliderReleased.connect(self._set_released)
@@ -29,10 +29,11 @@ class DoubleSlider(QSlider):
         self.valueChanged.connect(self._check_and_emit)
 
         super().setMinimum(0)
-        super().setMaximum(self._max_int)
+        super().setMaximum(self._MAX_INT)
 
-        self._min_value = 0.0
-        self._max_value = 1.0
+        self._min_value = bounds[0]
+        self._max_value = bounds[1]
+        self.setValue(value)
 
     def emit_value(self, *args):
         self.valueChangedByHand.emit(self.value())
@@ -49,18 +50,6 @@ class DoubleSlider(QSlider):
 
     def set_decimals(self, decimals):
         self.decimals = decimals
-        value = self.value()
-        self._max_int = 10 ** self.decimals
-        super().setMinimum(0)
-        super().setMaximum(self._max_int)
-        self.setRange(self._min_value, self._max_value)
-        self.setValue(value)
-
-    def _update_max_int(self):
-        self._max_int = self._value_range * (10 ** self.decimals)
-        if self._max_int <= 0:
-            self._max_int = 1
-        super().setMaximum(self._max_int)
 
     @property
     def _value_range(self):
@@ -68,12 +57,12 @@ class DoubleSlider(QSlider):
 
     def _real_to_view(self, value):
         try:
-            return int((value - self._min_value) / self._value_range * self._max_int)
+            return int((value - self._min_value) / self._value_range * self._MAX_INT)
         except ZeroDivisionError:
             return 0
 
     def _view_to_real(self, value):
-        return value / self._max_int * self._value_range + self._min_value
+        return value / self._MAX_INT * self._value_range + self._min_value
 
     def value(self):
         return self._view_to_real(super().value())
@@ -86,7 +75,6 @@ class DoubleSlider(QSlider):
             raise ValueError("Minimum limit cannot be higher than maximum")
         real_value = self.value()
         self._min_value = value
-        self._update_max_int()
         self.setValue(real_value)
         if real_value < value:
             self.emit_value()
@@ -97,7 +85,6 @@ class DoubleSlider(QSlider):
 
         real_value = self.value()
         self._max_value = value
-        self._update_max_int()
         self.setValue(real_value)
         if real_value > value:
             self.emit_value()
@@ -106,7 +93,6 @@ class DoubleSlider(QSlider):
         real_value = self.value()
         self._min_value = p_int
         self._max_value = p_int_1
-        self._update_max_int()
         self.setValue(real_value)
 
     def minimum(self):
@@ -114,6 +100,82 @@ class DoubleSlider(QSlider):
 
     def maximum(self):
         return self._max_value
+
+
+class LabeledSlider(QWidget):
+    valueChanged = pyqtSignal(float)
+
+    _EditMaximumWidth = 80
+    _Height = 40
+    _padding = 50
+
+    def __init__(self, name: str, bounds: tuple = (0, 1),
+                 value: float = 0,
+                 parent=None, orientation=Qt.Horizontal, decimals: int = 3, scientific: bool = False):
+        super().__init__(parent=parent)
+        self.name = name
+        self._decimals = decimals
+        self._scientific: bool = scientific
+        self._bounds = bounds
+        self.slider = DoubleSlider(orientation, parent, decimals, value, bounds)
+        self.line_edit = QLineEdit(self.get_str_value())
+        self.label = QLabel(name)
+
+        self.line_edit.editingFinished.connect(self._set_value_from_text)
+        self.line_edit.setStyleSheet('QLineEdit {  border: none; }')
+
+        self.slider.valueChangedByHand.connect(self._set_value_from_slider)
+
+        layout = QHBoxLayout(self)
+        layout.addWidget(self.label)
+        layout.addWidget(self.slider)
+        layout.addWidget(self.line_edit)
+        self.setFixedHeight(self._Height)
+        min_width = self.fontMetrics().width(
+            ' = '.join([self.name, self.get_str_value()])) + self._padding
+        self.setMinimumWidth(min_width)
+
+    @property
+    def value(self) -> float:
+        return self.slider.value()
+
+    def get_str_value(self) -> str:
+        if self._decimals:
+            return f'{self.slider.value():.{self._decimals}{"e" if self._scientific else "f"}}'
+        else:
+            return str(int(self.slider.value()))
+
+    def _set_value_from_slider(self):
+        self.line_edit.setText(self.get_str_value())
+        self.valueChanged.emit(self.slider.value())
+
+    def _set_value_from_text(self):
+        value = self.line_edit.text()
+        try:
+            if self._decimals:
+                value = float(value)
+            else:
+                value = int(value)
+            self.slider.setValue(value)
+            if value < self._bounds[0] or value > self._bounds[1]:
+                raise ValueError()
+        except ValueError:
+            self.line_edit.setText(self.get_str_value())
+            color_animation(self.line_edit)
+
+        self.valueChanged.emit(self.slider.value())
+
+    def set_value(self, value: float, change_bounds: bool = False):
+        if change_bounds and value < self.slider.minimum():
+            self.slider.setMinimum(value)
+
+        elif change_bounds and value > self.slider.maximum():
+            self.slider.setMaximum(value)
+
+        self.slider.setValue(value)
+        self.line_edit.setText(self.get_str_value())
+        if value != self.value:
+            self.valueChanged.emit(value)
 
 
 class AnimatedSlider(RoundedPushButton):

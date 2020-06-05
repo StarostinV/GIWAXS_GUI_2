@@ -8,7 +8,7 @@ from PyQt5.QtCore import pyqtSignal, Qt
 from ..app.rois.roi import Roi
 from ..app import App
 from ..app.transformations import Transformation
-from .basic_widgets import CustomImageViewer, AnimatedSlider, BlackToolBar
+from .basic_widgets import CustomImageViewer, LabeledSlider, BlackToolBar
 from .roi_widgets.roi_2d_ring_widget import Roi2DRing
 from .roi_widgets.abstract_roi_holder import AbstractRoiHolder
 from .tools import Icon, center_widget
@@ -44,10 +44,12 @@ class GiwaxsImageViewer(AbstractRoiHolder, CustomImageViewer):
             self._scale = scale
             self.set_size()
 
-    def __init__(self, parent=None, **kwargs):
+    def __init__(self, parent=None):
         AbstractRoiHolder.__init__(self, 'ImageViewer')
-        CustomImageViewer.__init__(self, parent, **kwargs)
-
+        CustomImageViewer.__init__(
+            self, parent)
+        self.image_plot.getAxis('bottom').setLabel(text='<math>Q<sub>xy</sub></math>', color='white')
+        self.image_plot.getAxis('left').setLabel(text='<math>Q<sub>z</sub></math>', color='white')
         self.app = App()
         self._geometry_params_widget = None
         self.__init_center_roi()
@@ -93,7 +95,7 @@ class GiwaxsImageViewer(AbstractRoiHolder, CustomImageViewer):
                 image.shape, beam_center, scale=scale)
             self.center_roi.show()
             self._geometry_params_widget.change_center.connect(lambda x:
-                self.app.geometry_holder.set_beam_center(x, False))
+                                                               self.app.geometry_holder.set_beam_center(x, False))
             self._geometry_params_widget.scale_changed.connect(
                 self.app.geometry_holder.set_scale)
             self._geometry_params_widget.close_event.connect(self._on_closing_geometry_parameters)
@@ -126,7 +128,7 @@ class GeometryParametersWidget(QWidget):
         self.scale = scale
         self.angle_direction = angle_direction
         self.__init__ui__()
-        self.setWindowTitle('Set beam center coordinates')
+        self.setWindowTitle('Set geometry')
         self.setWindowIcon(Icon('setup'))
         center_widget(self)
         self.show()
@@ -138,14 +140,12 @@ class GeometryParametersWidget(QWidget):
     def __init__ui__(self):
         layout = QVBoxLayout(self)
 
-        self.x_slider = AnimatedSlider('Y center', (0, self.image_shape[1]),
-                                       self.beam_center[1], self,
-                                       Qt.Horizontal, disable_changing_status=True)
+        self.x_slider = LabeledSlider('Y center', (0, self.image_shape[1]),
+                                      self.beam_center[1], self)
         self.x_slider.valueChanged.connect(self._connect_func(1))
 
-        self.y_slider = AnimatedSlider('Z center', (0, self.image_shape[0]),
-                                       self.beam_center[0], self,
-                                       Qt.Horizontal, disable_changing_status=True)
+        self.y_slider = LabeledSlider('Z center', (0, self.image_shape[0]),
+                                      self.beam_center[0], self)
         self.y_slider.valueChanged.connect(self._connect_func(0))
 
         # self.angle_slider = AnimatedSlider('Zero angle', (0, 360),
@@ -156,10 +156,9 @@ class GeometryParametersWidget(QWidget):
         # self.invert_angle_box = QCheckBox('Invert angle')
         # self.invert_angle_box.toggled.connect(self._connect_func(3))
 
-        self.scale_edit = AnimatedSlider('Q to pixel ratio', (1e-10, 10),
-                                         self.scale, self,
-                                         Qt.Horizontal, disable_changing_status=True,
-                                         decimals=5)
+        self.scale_edit = LabeledSlider('Q to pixel ratio', (1e-10, 10),
+                                        self.scale, self,
+                                        decimals=5)
         self.scale_edit.valueChanged.connect(self.on_scale_changed)
 
         layout.addWidget(self.x_slider)

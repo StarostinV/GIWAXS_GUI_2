@@ -35,6 +35,8 @@ class Icon(QIcon):
 
 
 class CSS(object):
+    default = 'Dark Grey'
+
     @staticmethod
     def get_css(name: str) -> str or None:
         if '.css' not in name:

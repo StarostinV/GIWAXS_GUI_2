@@ -1,6 +1,9 @@
 from abc import abstractmethod
+from typing import Callable
 
 from PyQt5.QtGui import QColor
+
+from .rois_context_menu import RoiContextMenu
 from ...app.rois.roi import Roi
 
 COLOR_DICT = dict(
@@ -24,9 +27,12 @@ def _color_key(roi: Roi) -> str:
 class AbstractRoiWidget(object):
     BRIGHT_COLOR: bool = True
 
-    def __init__(self, roi: Roi, context_menu_func=None):
+    def __init__(self, roi: Roi, enable_context: bool = False, context_menu: Callable[[Roi], None] = RoiContextMenu):
         self._roi = roi
-        self._context_menu_func = context_menu_func
+        if enable_context:
+            self._context_menu = context_menu
+        else:
+            self._context_menu = None
 
     def update_color(self):
         color = COLOR_DICT[_color_key(self.roi)]
@@ -61,8 +67,8 @@ class AbstractRoiWidget(object):
         pass
 
     def show_context_menu(self, *args):
-        if self._context_menu_func:
-            self._context_menu_func(self.roi)
+        if self._context_menu:
+            self._context_menu(self.roi)
 
     def update_select(self):
         self.update_color()

@@ -21,6 +21,10 @@ class PolarImageViewer(AbstractRoiHolder, QMainWindow):
         self._setup_window = None
 
         self._image_viewer = CustomImageViewer(self)
+        self._image_viewer.image_plot.getAxis('bottom').setLabel(
+            text='|Q|', color='white', font_size='large')
+        self._image_viewer.image_plot.getAxis('left').setLabel(
+            text='&Phi;', color='white', font_size='large')
         self.setCentralWidget(self._image_viewer)
         self.app.image_holder.sigPolarImageChanged.connect(self._update_image)
         self.app.geometry_holder.sigScaleChanged.connect(self._on_scale_changed)

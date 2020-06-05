@@ -104,7 +104,8 @@ class DockAreaWidget(QMainWindow):
 
         self.preferences = self.menubar.addMenu('Preferences')
         self.themes_menu = self.preferences.addMenu('Themes')
-        themes = CSS.list_css() + QStyleFactory.keys()
+        themes = CSS.list_css()
+        # themes = CSS.list_css() + QStyleFactory.keys()
         for theme in themes:
             theme_action = self.themes_menu.addAction(theme)
             theme_action.triggered.connect(lambda *x, t=theme: self.set_style(t))
@@ -151,7 +152,7 @@ class DockAreaWidget(QMainWindow):
 
     def set_style(self, name: str = None):
         if not name:
-            name = self.app.fm.config['style']
+            name = self.app.fm.config['style'] or CSS.default
             if not name:
                 return
         css = CSS.get_css(name)

@@ -43,6 +43,11 @@ class AppDockArea(DockArea):
 
     def _open_fit_widget(self, g_fit):
         self._fit_widget = FitWidget(g_fit)
+        self._fit_widget.sigFitApplied.connect(self._apply_fit)
+
+    def _apply_fit(self, g_fit):
+        self._fit_widget = None
+        self.app.image_holder.apply_fit(g_fit)
 
     def _apply_default_view(self):
         self.show_hide_docks('polar')

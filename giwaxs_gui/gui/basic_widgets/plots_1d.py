@@ -12,7 +12,7 @@ from PyQt5.QtGui import QColor, QPen
 from PyQt5.QtCore import Qt, pyqtSignal
 
 from pyqtgraph import GraphicsLayoutWidget, LinearRegionItem
-from .sliders import AnimatedSlider
+from .sliders import LabeledSlider
 from .toolbars import BlackToolBar
 from ..basic_widgets import RoundedPushButton
 from ..tools import Icon, show_error
@@ -71,6 +71,11 @@ class Smooth1DPlot(QMainWindow):
     def x(self):
         return self.profile.x
 
+    @x.setter
+    def x(self, value):
+        self.profile.x = value
+        self.plot()
+
     @property
     def y(self) -> np.ndarray or None:
         return self.profile.y
@@ -82,13 +87,12 @@ class Smooth1DPlot(QMainWindow):
         self.__init_sigma_slider(param_toolbar)
 
     def __init_sigma_slider(self, toolbar):
-        sigma_slider = AnimatedSlider('𝞼', (0, 10), self.profile.sigma,
-                                      decimals=2)
+        sigma_slider = LabeledSlider('𝞼', (0, 10), self.profile.sigma,
+                                     decimals=2)
         sigma_slider.setMaximumWidth(self._MaximumSliderWidth)
         sigma_slider.setMaximumHeight(self._MaximumSliderHeight)
         sigma_slider.valueChanged.connect(self.update_sigma)
-        sigma_slider.setStyleSheet('background-color: white;')
-        sigma_slider.shadow.setColor(QColor('blue'))
+
         self.sigma_slider = sigma_slider
         frame = QFrame()
         layout = QHBoxLayout()
@@ -267,11 +271,11 @@ class BaseLineSetup(QWidget):
     def __init_ui(self, smoothness: float, asymmetry: float):
         layout = QVBoxLayout(self)
 
-        self.smoothness_slider = AnimatedSlider('Smoothness parameter', (1e2, 1e4), smoothness,
-                                                self, Qt.Horizontal, disable_changing_status=True, decimals=3)
+        self.smoothness_slider = LabeledSlider('Smoothness parameter', (1e2, 1e8), smoothness,
+                                               self, Qt.Horizontal, decimals=3, scientific=True)
 
-        self.asymmetry_slider = AnimatedSlider('Asymmetry parameter', (0.001, 0.1), asymmetry,
-                                               self, Qt.Horizontal, disable_changing_status=True, decimals=3)
+        self.asymmetry_slider = LabeledSlider('Asymmetry parameter', (0.001, 0.1), asymmetry,
+                                              self, Qt.Horizontal, decimals=3, scientific=True)
 
         self.save_params_box = QRadioButton('Save as default')
         self.save_params_box.setChecked(True)

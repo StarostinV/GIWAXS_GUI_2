@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
-import logging
 
 import numpy as np
 
 from pyqtgraph import (GraphicsLayoutWidget, setConfigOptions,
                        ImageItem, HistogramLUTItem)
-
-logger = logging.getLogger(__name__)
 
 
 class CustomImageViewer(GraphicsLayoutWidget):
@@ -20,15 +17,16 @@ class CustomImageViewer(GraphicsLayoutWidget):
         self._scale = (1., 1.)
         self._center = (0, 0)
 
-        self.__init_ui__()
+        self.__init_ui(**kwargs)
 
-    def __init_ui__(self):
+    def __init_ui(self, **kwargs):
         self.setWindowTitle('Image Viewer')
-        self.image_plot = self.addPlot()
+        self.image_plot = self.addPlot(**kwargs)
         self.image_plot.vb.setAspectLocked()
         self.image_plot.vb.invertY()
         self.image_item = ImageItem()
         self.image_plot.addItem(self.image_item)
+        self.image_plot.setMenuEnabled(False)
         self.hist = HistogramLUTItem()
         self.hist.setImageItem(self.image_item)
         self.addItem(self.hist)
@@ -128,7 +126,6 @@ class CustomImageViewer(GraphicsLayoutWidget):
 if __name__ == '__main__':
     import sys
     from PyQt5.QtWidgets import QApplication
-    import numpy as np
 
     app = QApplication(sys.argv)
     window = CustomImageViewer()

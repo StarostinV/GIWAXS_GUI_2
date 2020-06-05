@@ -6,7 +6,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from pyqtgraph import LinearRegionItem
 
 from ...app.rois.roi import Roi
-from .rois_context_menu import RadialProfileContextMenu
+
 from .abstract_roi_widget import AbstractRoiWidget
 
 
@@ -21,12 +21,8 @@ class Roi1D(AbstractRoiWidget, LinearRegionItem):
     _INACTIVE_Z = 5
     _FIXED_Z = -30
 
-    def __init__(self, roi: Roi, enable_context: bool = True):
-        if enable_context:
-            context_menu_func = RadialProfileContextMenu
-        else:
-            context_menu_func = None
-        AbstractRoiWidget.__init__(self, roi, context_menu_func)
+    def __init__(self, roi: Roi, enable_context: bool = True, **kwargs):
+        AbstractRoiWidget.__init__(self, roi, enable_context=enable_context, **kwargs)
         LinearRegionItem.__init__(self)
         self.sigRegionChanged.connect(self.roi_is_moving)
         self.update_roi()
@@ -59,6 +55,7 @@ class Roi1D(AbstractRoiWidget, LinearRegionItem):
         r, w = self.roi.radius, abs(self.roi.width)
         x1, x2 = r - w / 2, r + w / 2
         self.setRegion((x1, x2))
+        self.update()
 
     def hoverEvent(self, ev):
         pass

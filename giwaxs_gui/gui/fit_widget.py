@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 import logging
-from typing import List, Dict, Iterable
+from typing import List, Dict, Iterable, Union
 
-from PyQt5.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel, QFrame, QSplitter
-from PyQt5.QtGui import QPen, QColor
+from PyQt5.QtWidgets import (QWidget, QGridLayout, QPushButton,
+                             QLabel, QFrame, QSplitter, QMenu)
+from PyQt5.QtGui import QPen, QColor, QCursor
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 
 from .roi_widgets.roi_2d_rect_widget import Roi2DRect
@@ -16,6 +17,8 @@ from .tools import center_widget, Icon
 
 
 class FitWidget(QWidget):
+
+    sigFitApplied = pyqtSignal(object)
 
     def __init__(self, gaussian_fit: GaussianFit, parent=None):
         super().__init__(parent=parent)
@@ -54,12 +57,11 @@ class FitWidget(QWidget):
         self.sliders_widget.sigValueChanged.connect(self._sliders_changed)
 
         for roi in self.rois:
-            rect_widget = Roi2DRect(roi, enable_context=False)
+            rect_widget = Roi2DRect(roi, context_menu=self._rect_context)
             rect_widget.sigSelected.connect(self._roi_selected)
             rect_widget.sigRoiMoved.connect(self._roi_moved)
             self.polar_viewer.image_plot.addItem(rect_widget)
             self._rect_widgets[roi.key] = rect_widget
-
 
         q_splitter_v = QSplitter(orientation=Qt.Horizontal, parent=self)
         q_splitter_h1 = QSplitter(orientation=Qt.Vertical, parent=self)
@@ -79,6 +81,26 @@ class FitWidget(QWidget):
 
         layout.addWidget(self.fit_button, 2, 0)
         layout.addWidget(self.apply_button, 2, 1)
+
+    def _rect_context(self, roi: Roi):
+        menu = QMenu()
+        menu.addAction('Delete', lambda *x, r=roi: self._delete_roi(roi))
+        if roi.movable:
+            menu.addAction('Fix', lambda *x, r=roi: self._fix(roi))
+            menu.addAction('Fit', lambda *x, r=roi: self._fit(roi))
+        else:
+            menu.addAction('Unfix', lambda *x, r=roi: self._unfix(roi))
+        menu.exec_(QCursor.pos())
+
+    def _delete_roi(self, roi: Roi):
+        if roi.key == self.selected_key:
+            self.fit_plot.remove_fit()
+            self.radial_viewer.remove_fit()
+            self.sliders_widget.remove_fit()
+            self._selected_fit = None
+        del self.g_fit.fits[roi.key]
+        self.rois.remove(roi)
+        self.polar_viewer.image_plot.removeItem(self._rect_widgets[roi.key])
 
     @property
     def selected_key(self):
@@ -114,7 +136,8 @@ class FitWidget(QWidget):
 
     @pyqtSlot(name='apply')
     def _apply(self):
-        pass
+        self.sigFitApplied.emit(self.g_fit)
+        self.close()
 
     @pyqtSlot(name='fitButtonClicked')
     def _fit_clicked(self):
@@ -127,34 +150,70 @@ class FitWidget(QWidget):
             self._fitted = False
             self.fit_button.setText('Fit')
 
-    def _unfix(self):
-        for widget in self._rect_widgets.values():
+    def _unfix(self, roi: Union[Roi, Iterable[int]] = None):
+        if isinstance(roi, Roi):
+            widgets = (self._rect_widgets[roi.key],)
+        elif roi:
+            widgets = (self._rect_widgets[key] for key in roi)
+        else:
+            widgets = self._rect_widgets.values()
+
+        for widget in widgets:
             roi = widget.roi
             roi.active = False
             roi.movable = True
             widget.unfix()
-            widget.move_roi()
+            if roi.key == self.selected_key:
+                self.radial_viewer.roi_widget.unfix()
 
-        self.radial_viewer.update_roi()
-        self.fit_plot.update_plot()
-        self.sliders_widget.update_values()
+        # self.radial_viewer.update_roi()
+        # self.fit_plot.update_plot()
+        # self.sliders_widget.update_values()
 
-    def _fit(self):
-        self.g_fit.do_fit()
+    def _fix(self, roi: Union[Roi, Iterable[int]] = None):
+        if isinstance(roi, Roi):
+            widgets = (self._rect_widgets[roi.key],)
+        elif roi:
+            widgets = (self._rect_widgets[key] for key in roi)
+        else:
+            widgets = self._rect_widgets.values()
 
-        if self._selected_fit:
-            self.fit_plot.update_plot()
-            self.radial_viewer.update_roi()
-            self.sliders_widget.update_values()
-
-        for key, widget in self._rect_widgets.items():
+        for widget in widgets:
             roi = widget.roi
-            fit = self.g_fit.fits[key]
             roi.active = False
+            roi.movable = False
+            widget.fix()
+            if roi.key == self.selected_key:
+                self.radial_viewer.roi_widget.fix()
+
+        # self.radial_viewer.update_roi()
+        # self.fit_plot.update_plot()
+        # self.sliders_widget.update_values()
+
+    def _fit(self, roi: Union[Roi, Iterable[int]] = None):
+        if isinstance(roi, Roi):
+            fits = (self.g_fit.fits[roi.key], )
+        elif roi:
+            fits = (self.g_fit.fits[key] for key in roi)
+        else:
+            fits = self.g_fit.fits.values()
+
+        keys_to_fix: List[int] = []
+
+        for fit in fits:
+            self.g_fit.do_fit(fit)
+            roi_ = fit.roi
+            key = roi_.key
+            roi_.active = False
             if fit.fitted_params:
-                roi.movable = False
-                widget.fix()
-            widget.move_roi()
+                keys_to_fix.append(key)
+
+            if key == self.selected_key:
+                self.fit_plot.update_plot()
+                self.radial_viewer.update_roi()
+                self.sliders_widget.update_values()
+
+        self._fix(keys_to_fix)
 
     def _roi_selected(self, key: int):
         if key == self.selected_key:
@@ -192,6 +251,7 @@ class SliderWithLabels(QFrame):
 
 class SlidersWidget(QWidget):
     sigValueChanged = pyqtSignal()
+    DEFAULT_LABEL = 'lower bound; init value; upper bound'
 
     def __init__(self, param_names: Iterable[str], parent=None):
         super().__init__(parent=parent)
@@ -207,7 +267,7 @@ class SlidersWidget(QWidget):
         for i, param_name in enumerate(param_names):
             layout.addWidget(QLabel(param_name), i, 0, alignment=Qt.AlignCenter)
             self._sliders[i] = sl = ParametersSlider()
-            self._labels[i] = ll = QLabel('lower bound; init value; upper bound')
+            self._labels[i] = ll = QLabel(self.DEFAULT_LABEL)
             layout.addWidget(SliderWithLabels(sl, ll, self), i, 1)
             sl.sigLowerValueChanged.connect(lambda x, idx=i: self._send_value(x, 0, idx))
             sl.sigMiddleValueChanged.connect(lambda x, idx=i: self._send_value(x, 1, idx))
@@ -243,6 +303,11 @@ class SlidersWidget(QWidget):
             idx, self.fit.lower_bounds[idx], self.fit.init_params[idx], self.fit.upper_bounds[idx])
 
         self.sigValueChanged.emit()
+
+    def remove_fit(self):
+        self.fit = None
+        for l in self._labels.values():
+            l.setText(self.DEFAULT_LABEL)
 
 
 class RadialFitWidget(Custom1DPlot):
@@ -321,9 +386,15 @@ class FitPlot(Custom1DPlot):
 
         except Exception as err:
             self.log.exception(err)
+            self.clear_plot()
 
     def remove_fit(self):
         self.fit = None
+        self.clear_plot()
+
+    def clear_plot(self):
+        self.plot.clear()
+        self.fit_plot.clear()
 
     @staticmethod
     def _get_fit_pen():

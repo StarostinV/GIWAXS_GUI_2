@@ -23,11 +23,16 @@ class RadialProfileWidget(AbstractRoiHolder, Smooth1DPlot):
     def __init__(self, parent=None):
         AbstractRoiHolder.__init__(self, 'RadialProfile')
         Smooth1DPlot.__init__(self, App().radial_profile, parent)
-        self.__init_radial_toolbars()
+        App().geometry_holder.sigScaleChanged.connect(self._update_axis)
+        self._init_radial_toolbars()
         self._fit_params_dict: dict = PeaksSetupWindow.get_config()
         self._peaks_setup = None
 
-    def __init_radial_toolbars(self):
+        # self.image_view.plot_item.setTitle('Radial Profile')
+        self.image_view.plot_item.getAxis('bottom').setLabel('|Q|', color='white', font_size='large')
+        self.image_view.plot_item.getAxis('left').setLabel('Intensity', color='white', font_size='large')
+
+    def _init_radial_toolbars(self):
 
         fit_toolbar = BlackToolBar('Fitting', self)
         self.addToolBar(fit_toolbar)
@@ -77,11 +82,8 @@ class RadialProfileWidget(AbstractRoiHolder, Smooth1DPlot):
     #     self.update_x_axis()
     #
     #
-    # def update_x_axis(self, plot: bool = True):
-    #     rr = self.image.rr
-    #     self.x = np.linspace(rr.min(), rr.max(), self.smoothed_y.size) * self.image.scale
-    #     if plot:
-    #         self.plot()
+    def _update_axis(self):
+        self.x = App().geometry.r_axis
 
     def find_peaks(self):
         if self.y is None or self.x is None:

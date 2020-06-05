@@ -4,7 +4,6 @@ from pyqtgraph import RectROI
 
 from ...app.rois.roi import Roi
 from .abstract_roi_widget import AbstractRoiWidget
-from .rois_context_menu import RoiContextMenu
 
 
 class Roi2DRect(AbstractRoiWidget, RectROI):
@@ -12,12 +11,8 @@ class Roi2DRect(AbstractRoiWidget, RectROI):
     sigSelected = pyqtSignal(int)
     sigShiftSelected = pyqtSignal(int)
 
-    def __init__(self, roi: Roi, enable_context: bool = True):
-        if enable_context:
-            context_menu_func = RoiContextMenu
-        else:
-            context_menu_func = None
-        AbstractRoiWidget.__init__(self, roi, context_menu_func)
+    def __init__(self, roi: Roi, enable_context: bool = True, **kwargs):
+        AbstractRoiWidget.__init__(self, roi, enable_context=enable_context, **kwargs)
         RectROI.__init__(self, pos=(0, 0), size=(1, 1), centered=False, sideScalers=False)
 
         self.addScaleHandle([0.5, 0], [0.5, 1])

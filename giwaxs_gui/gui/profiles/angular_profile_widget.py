@@ -12,6 +12,10 @@ class AngularProfileWidget(AbstractRoiHolder, Smooth1DPlot):
         Smooth1DPlot.__init__(self, App().angular_profile, parent)
         self._selected_key = None
 
+        # self.image_view.plot_item.setTitle('Angular Profile')
+        self.image_view.plot_item.getAxis('bottom').setLabel('&Phi;', color='white', font_size='large')
+        self.image_view.plot_item.getAxis('left').setLabel('Intensity', color='white', font_size='large')
+
     def _init_connect(self):
         App().image_holder.sigPolarImageChanged.connect(self._update)
         self._roi_dict.sig_roi_created.connect(self._update)

@@ -41,12 +41,6 @@ class Roi2DRing(AbstractRoiWidget, ROI):
     def send_move(self):
         pass
 
-    def fix(self):
-        pass
-
-    def unfix(self):
-        pass
-
     def set_color(self, color):
         self.setPen(color)
 

@@ -103,7 +103,3 @@ class RoiContextMenu(AbstractRoiContextMenu):
         fit_selected.triggered.connect(lambda: self.roi_dict.open_fit_rois(True))
         fit_selected = fit_menu.addAction('Fit all rois')
         fit_selected.triggered.connect(lambda: self.roi_dict.open_fit_rois(False))
-
-
-class RadialProfileContextMenu(RoiContextMenu):
-    pass
