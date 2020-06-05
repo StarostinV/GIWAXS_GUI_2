@@ -53,6 +53,7 @@ class GaussianFit(object):
         self.fits: Dict[int, Fit] = {}
         self.aspect_ratio = self._aspect_ratio()
         self.bounds = self._bounds()
+        self.name = ''
 
     def _aspect_ratio(self):
         p, r = self.phi_axis, self.r_axis
