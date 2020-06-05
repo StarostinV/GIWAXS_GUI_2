@@ -35,11 +35,13 @@ class ImageKey(object):
     def name(self):
         return self._path.name
 
-    def file_name(self) -> str:
+    def file_name(self, name: str = '') -> str:
         if self._real_time_name is None:
             filename = str(self._path.resolve())
         else:
             filename = f'{self._real_time_name}_{self._num}'
+        if name:
+            filename += f'_{name}'
         filename = re.sub('[^\w\-_\. ]', '_', filename) + '.giwaxs'
         return filename
 
@@ -107,6 +109,12 @@ class _ObjectFileManager(object):
         if path and path.is_file():
             return True
         return False
+
+
+class _ReadFits(_ObjectFileManager):
+    def _get_path(self, fit_key: tuple) -> Path:
+        key, name = fit_key
+        return self.folder / key.file_name(name)
 
 
 class _ReadNpy(_ObjectFileManager):
@@ -345,7 +353,7 @@ class FileManager(QObject):
         self.geometries: _ReadGeometry = _ReadGeometry(self._project_folder / 'geometries')
         self.polar_images: _ReadNpy = _ReadNpy(self._project_folder / 'polar_images')
         self.rois_data: _ObjectFileManager = _ObjectFileManager(self._project_folder / 'rois')
-        self.fits: _ObjectFileManager = _ObjectFileManager(self._project_folder / 'fits')
+        self.fits: _ReadFits = _ReadFits(self._project_folder / 'fits')
         self.project_name = self._project_folder.name
 
         for path in self._project_structure.root_paths():
