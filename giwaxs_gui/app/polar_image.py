@@ -84,8 +84,9 @@ class PolarImage(object):
         r1, r2 = roi.radius - roi.width / 2, roi.radius + roi.width / 2
 
         r_min, r_max = geometry.r_range
+        scale = geometry.scale
         r_size = self.polar_image.shape[1]
-        r_ratio = (r_max - r_min) / r_size
+        r_ratio = (r_max - r_min) / r_size * scale
 
         r1, r2 = int((r1 - r_min) / r_ratio), int((r2 - r_min) / r_ratio)
         r1, r2 = max(min((r1, r2)), 0), min(max((r1, r2)), r_size)
