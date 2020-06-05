@@ -18,14 +18,33 @@ class Roi2DRect(AbstractRoiWidget, RectROI):
         else:
             context_menu_func = None
         AbstractRoiWidget.__init__(self, roi, context_menu_func)
-        RectROI.__init__(self, pos=(0, 0), size=(1, 1))
+        RectROI.__init__(self, pos=(0, 0), size=(1, 1), centered=False, sideScalers=False)
+
+        self.addScaleHandle([0.5, 0], [0.5, 1])
+        self.addScaleHandle([0.5, 1], [0.5, 0])
+        self.addScaleHandle([0, 0.5], [1, 0.5])
+        self.addScaleHandle([1, 0.5], [0, 0.5])
+
         self.handle = self.handles[0]['item']
+        self.handles.pop(0)
+        self.handle.disconnectROI(self)
+        self.handle.hide()  # how to remove???
         self.sigRegionChanged.connect(self._handle_is_moving)
         self.update_roi()
 
     def _handle_is_moving(self):
-        if self.handle.isMoving:
-            self.send_move()
+        for h in self.handles:
+            if h['item'].isMoving:
+                self.send_move()
+                return
+
+    def _hide_handles(self):
+        for h in self.handles:
+            h['item'].hide()
+
+    def _show_handles(self):
+        for h in self.handles:
+            h['item'].show()
 
     def send_move(self):
         size, pos = self.size(), self.pos()
@@ -73,9 +92,9 @@ class Roi2DRect(AbstractRoiWidget, RectROI):
     def fix(self):
         super().fix()
         self.set_movable(False)
-        self.handle.hide()
+        self._hide_handles()
 
     def unfix(self):
         super().unfix()
         self.set_movable(True)
-        self.handle.show()
+        self._show_handles()
