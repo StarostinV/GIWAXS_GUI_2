@@ -77,6 +77,8 @@ class RoiData(dict):
 
         if roi.active:
             self._selected_keys.add(roi.key)
+        if not roi.name:
+            roi.name = str(roi.key)
 
     def add_rois(self, roi_list: List[Roi]) -> List[int]:
         keys = list()
