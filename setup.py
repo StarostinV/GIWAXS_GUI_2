@@ -17,13 +17,13 @@ setup(
         long_description=read('README.md'),
         long_description_content_type='text/markdown',
         license='GPLv3',
-        python_requires='>=3.7.*',
+        python_requires='>=3.7.2',
         install_requires=[
             'numpy>=1.18.1',
-            'opencv-python>=4.*.*.*',
-            'scipy>=1.4.1.',
+            'opencv-python>=4.0.0.0',
+            'scipy>=1.4.1',
             'h5py>=2.10.0',
-            'PyQ5',
+            'PyQt5',
             'pyqtgraph==0.11.0rc0',
             'read_edf',
             'Pillow'
