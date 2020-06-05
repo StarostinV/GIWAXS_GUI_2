@@ -241,6 +241,8 @@ class RoiDict(QObject):
 
     def _default_params(self) -> dict:
         r0, r1 = self._geometry_holder.geometry.r_range
+        r0 *= self._geometry_holder.geometry.scale
+        r1 *= self._geometry_holder.geometry.scale
         radius = (r0 + r1) / 2
         width = (r1 - r0) / 10
         angle, angle_std = self.ring_bounds
