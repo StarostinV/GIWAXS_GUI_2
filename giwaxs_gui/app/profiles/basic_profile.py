@@ -34,6 +34,14 @@ class SmoothedProfile(QObject):
     def x(self) -> np.ndarray or None:
         return self._x
 
+    @x.setter
+    def x(self, value):
+        if value is None:
+            return
+        if self.y is not None and value.size != self.y.size:
+            return
+        self._x = value
+
     @property
     def y(self) -> np.ndarray or None:
         return self._y
