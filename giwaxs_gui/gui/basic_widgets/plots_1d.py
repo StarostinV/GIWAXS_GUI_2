@@ -105,10 +105,13 @@ class Smooth1DPlot(QMainWindow):
         self.profile.set_sigma(value)
         self.plot()
 
+    def auto_range(self):
+        self.image_view.plot_item.autoRange()
+
     def plot(self):
         if self.x is not None and self.y is not None:
             self.image_view.set_data(self.x, self.y)
-            self.image_view.plot_item.autoRange()
+            self.auto_range()
 
     def clear_plot(self):
         self.image_view.clear_plot()
