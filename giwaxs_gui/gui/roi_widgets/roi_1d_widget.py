@@ -40,7 +40,7 @@ class Roi1D(AbstractRoiWidget, LinearRegionItem):
 
     def set_color(self, color):
         self.setBrush(color)
-        self.viewRangeChanged()
+        self.update()
 
     def set_movable(self, movable: bool):
         self.setMovable(movable)
@@ -99,14 +99,14 @@ class Roi1D(AbstractRoiWidget, LinearRegionItem):
         self._update_z_value()
 
     def fix(self):
+        super().fix()
         self.setMovable(False)
         self._update_z_value()
-        super().fix()
 
     def unfix(self):
+        super().unfix()
         self.setMovable(True)
         self._update_z_value()
-        super().unfix()
 
     def _update_z_value(self):
         if self.roi.movable:
@@ -116,6 +116,7 @@ class Roi1D(AbstractRoiWidget, LinearRegionItem):
                 self.setZValue(self._INACTIVE_Z)
         else:
             self.setZValue(self._FIXED_Z)
+        self.update()
 
 
 class Roi1DAngular(Roi1D):
