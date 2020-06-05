@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from dataclasses import dataclass
-from typing import List, Tuple, Dict
+from typing import Tuple, Dict
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -24,6 +24,7 @@ class Fit:
     upper_bounds: list
     fitted_params: list
     fit_errors: list
+    fitting_curve: np.ndarray
     param_names: list
     fitting_method: str
 
@@ -73,7 +74,7 @@ class GaussianFit(object):
         fit = Fit(roi=roi, image_key=self.image_key, r_range=(r1, r2), x_range=(x1, x2),
                   x=x, y=y, init_curve=init_curve, init_params=init_params,
                   lower_bounds=lower_bounds, upper_bounds=upper_bounds,
-                  fitted_params=[], fit_errors=[],
+                  fitted_params=[], fit_errors=[], fitting_curve=None,
                   param_names=list(self.PARAM_NAMES), fitting_method=self.METHOD)
         self.fits[roi.key] = fit
 
@@ -98,12 +99,18 @@ class GaussianFit(object):
                 init_params, lower_bounds, upper_bounds = self._default_bounds(roi, y)
             except ValueError:
                 pass
+        else:
+            fit.roi.radius = fit.init_params[1]
+            fit.roi.width = fit.init_params[2]
 
         init_curve = self.gauss(x, *init_params)
 
         fit.update(r_range=(r1, r2), x_range=(x1, x2),
                    x=x, y=y, init_curve=init_curve, init_params=init_params,
                    lower_bounds=lower_bounds, upper_bounds=upper_bounds)
+
+        if fit.fitted_params:
+            fit.fitting_curve = self.gauss(x, *fit.fitted_params)
 
     def remove_fit(self, fit: Fit):
         try:
@@ -114,9 +121,10 @@ class GaussianFit(object):
     @staticmethod
     def _default_bounds(roi: Roi, y: np.ndarray):
         max_y = y.max()
+        min_y = y.min()
 
-        init_params = [max_y, roi.radius, roi.width, 0]
-        lower_bounds = [0, roi.radius - roi.width / 2, 0, 0]
+        init_params = [max_y - min_y, roi.radius, roi.width, min_y]
+        lower_bounds = [0, roi.radius - roi.width / 2, 0, min(0, min_y)]
         upper_bounds = [max_y, roi.radius + roi.width / 2, roi.width * 2, max_y]
         return init_params, lower_bounds, upper_bounds
 
@@ -126,27 +134,30 @@ class GaussianFit(object):
         if roi.type == RoiTypes.ring:
             y = self.r_profile[x1:x2]
         else:
-            p1, p2 = self._get_p_coords(roi.angle - roi.angle_std), self._get_p_coords(roi.angle + roi.angle_std)
-            y = self.polar_image[p1:p2, x1:x2].sum(axis=0)
+            p1, p2 = self._get_p_coords(roi.angle - roi.angle_std / 2), \
+                     self._get_p_coords(roi.angle + roi.angle_std / 2)
+            y = self.polar_image[max(0, p1):min(p2, self.phi_axis.size - 1), x1:x2].sum(axis=0)
 
         return x, y
 
-    def do_fit(self, fit: Fit = None):
+    def do_fit(self, fit: Fit = None) -> None:
         if fit:
             self._fit(fit)
-            return fit
         else:
             for fit in self.fits.values():
                 self._fit(fit)
 
-    def _fit(self, fit: Fit):
+    def _fit(self, fit: Fit) -> None:
         try:
             popt, pcov = curve_fit(self.gauss, fit.x, fit.y, fit.init_params,
                                    bounds=fit.bounds)
             perr = np.sqrt(np.diag(pcov))
 
-            fit.fitted_params = popt
-            fit.fit_errors = perr
+            fit.fitted_params = popt.tolist()
+            fit.init_params = fit.fitted_params
+            fit.fit_errors = perr.tolist()
+            fit.fitting_curve = self.gauss(fit.x, *popt)
+            fit.init_curve = self.gauss(fit.x, *fit.fitted_params)
 
         except RuntimeError:
             pass
@@ -154,7 +165,7 @@ class GaussianFit(object):
     @staticmethod
     def gauss(x, *p):
         amp, mu, sigma, base = p
-        return amp * np.exp(- (x - mu) ** 2 / (2. * sigma ** 2)) + base
+        return amp * np.exp(- 2 * (x - mu) ** 2 / sigma ** 2) + base
 
     def _get_r_coords(self, r):
         return int((r - self.r_axis.min()) / self.r_delta)
