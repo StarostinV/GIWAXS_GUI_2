@@ -120,3 +120,22 @@ class RoiData(dict):
         for roi in self.values():
             roi.radius *= scale_change
             roi.width *= scale_change
+
+    def apply_fit(self, rois: List[Roi]):
+        keys_to_move = []
+        rois_to_create = []
+
+        for roi in rois:
+            if roi.key in self.keys():
+                keys_to_move.append(roi.key)
+                self[roi.key].update(roi)
+            else:
+                roi.active = False
+                rois_to_create.append(roi)
+            roi.movable = False
+
+        self.add_rois(rois_to_create)
+        keys_to_create = [roi.key for roi in rois_to_create]
+
+        return tuple(keys_to_create), tuple(keys_to_move)
+
