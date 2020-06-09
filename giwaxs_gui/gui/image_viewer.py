@@ -2,7 +2,7 @@
 import logging
 
 from pyqtgraph import CircleROI
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout)
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton)
 from PyQt5.QtCore import pyqtSignal, Qt
 
 from ..app.rois.roi import Roi
@@ -56,6 +56,7 @@ class GiwaxsImageViewer(AbstractRoiHolder, CustomImageViewer):
         self.app.geometry_holder.sigScaleChanged.connect(self._on_scale_changed)
         self.app.geometry_holder.sigBeamCenterChanged.connect(self._on_beam_center_changed)
         self.app.image_holder.sigImageChanged.connect(self._on_image_changed)
+        self.app.image_holder.sigEmptyImage.connect(self.clear)
 
     def _on_scale_changed(self):
         scale = self.app.geometry.scale
@@ -127,7 +128,7 @@ class GeometryParametersWidget(QWidget):
         self.zero_angle = zero_angle
         self.scale = scale
         self.angle_direction = angle_direction
-        self.__init__ui__()
+        self._init__ui()
         self.setWindowTitle('Set geometry')
         self.setWindowIcon(Icon('setup'))
         center_widget(self)
@@ -137,7 +138,7 @@ class GeometryParametersWidget(QWidget):
         self.close_event.emit()
         QWidget.closeEvent(self, a0)
 
-    def __init__ui__(self):
+    def _init__ui(self):
         layout = QVBoxLayout(self)
 
         self.x_slider = LabeledSlider('Y center', (0, self.image_shape[1]),
@@ -199,9 +200,9 @@ class Basic2DImageWidget(QMainWindow):
         self.app = App()
         self.image_viewer = GiwaxsImageViewer(self)
         self.setCentralWidget(self.image_viewer)
-        self.__init_toolbar()
+        self._init_toolbar()
 
-    def __init_toolbar(self):
+    def _init_toolbar(self):
         toolbar = BlackToolBar('Geometry', self)
         self.addToolBar(toolbar)
 
@@ -220,3 +221,7 @@ class Basic2DImageWidget(QMainWindow):
         set_beam_center_action = toolbar.addAction(Icon('center'), 'Beam center')
         set_beam_center_action.triggered.connect(
             self.image_viewer.open_geometry_parameters)
+
+        self._set_default_geometry_button = QPushButton('Save as default geometry')
+        self._set_default_geometry_button.clicked.connect(self.app.geometry_holder.save_as_default)
+        toolbar.addWidget(self._set_default_geometry_button)
