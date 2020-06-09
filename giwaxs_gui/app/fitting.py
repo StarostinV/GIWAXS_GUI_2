@@ -159,6 +159,8 @@ class GaussianFit(object):
             fit.fit_errors = perr.tolist()
             fit.fitting_curve = self.gauss(fit.x, *popt)
             fit.init_curve = self.gauss(fit.x, *fit.fitted_params)
+            fit.roi.fitted_parameters = dict(zip(self.PARAM_NAMES, fit.fitted_params))
+            fit.roi.fitted_parameters['method'] = self.METHOD
 
         except RuntimeError:
             pass
