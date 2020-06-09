@@ -47,11 +47,11 @@ class AbstractInputParametersWidget(QWidget):
         d.update(config_d)
         return d
 
-    def __init__(self, parent=None):
-        super(AbstractInputParametersWidget, self).__init__(parent)
+    def __init__(self, parent=None, params_dict: dict = None):
+        super().__init__(parent)
         self.setWindowIcon(Icon('setup'))
         self.setWindowTitle(self.NAME)
-        self.default_dict = self.get_config()
+        self.default_dict = params_dict or self.get_config()
 
     def get_parameters_dict(self):
         parameters_dict = dict()
@@ -93,27 +93,27 @@ class BasicInputParametersWidget(AbstractInputParametersWidget):
     apply_signal = pyqtSignal(dict)
     close_signal = pyqtSignal()
 
-    def __init__(self, parent=None):
-        AbstractInputParametersWidget.__init__(self, parent)
+    def __init__(self, parent=None, params_dict: dict = None):
+        super().__init__(parent, params_dict)
         self.form = QFormLayout()
         for p in self.PARAMETER_TYPES:
             self.form.addRow(self._get_layout(p))
-        self.save_button = self.__init_save_button__()
-        self.apply_button = self.__init_apply_button__()
-        self.cancel_button = self.__init_cancel_button__()
+        self.save_button = self._init_save_button()
+        self.apply_button = self._init_apply_button()
+        self.cancel_button = self._init_cancel_button()
         self.form.addWidget(self.save_button)
         self.form.addWidget(self.apply_button)
         self.form.addWidget(self.cancel_button)
         self.setLayout(self.form)
         center_widget(self)
 
-    def __init_apply_button__(self):
+    def _init_apply_button(self):
         apply_button = QPushButton('Apply')
 
         apply_button.clicked.connect(self.on_apply)
         return apply_button
 
-    def __init_cancel_button__(self):
+    def _init_cancel_button(self):
         cancel_button = QPushButton('Cancel')
         cancel_button.clicked.connect(self.close)
         return cancel_button
@@ -132,7 +132,7 @@ class BasicInputParametersWidget(AbstractInputParametersWidget):
         AbstractInputParametersWidget.close(self)
 
     @staticmethod
-    def __init_save_button__():
+    def _init_save_button():
         save_button = QRadioButton('Save parameters')
         save_button.setChecked(True)
         return save_button
