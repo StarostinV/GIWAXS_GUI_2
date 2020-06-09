@@ -95,7 +95,7 @@ class GaussianFit(object):
                                                    fit.lower_bounds,
                                                    fit.upper_bounds)
 
-        if update_bounds:
+        if update_bounds and roi.movable:
             try:
                 init_params, lower_bounds, upper_bounds = self._default_bounds(roi, y)
             except ValueError:
@@ -124,9 +124,19 @@ class GaussianFit(object):
         max_y = y.max()
         min_y = y.min()
 
-        init_params = [max_y - min_y, roi.radius, roi.width, min_y]
         lower_bounds = [0, roi.radius - roi.width / 2, 0, min(0, min_y)]
         upper_bounds = [max_y, roi.radius + roi.width / 2, roi.width * 2, max_y]
+        init_params = [max_y - min_y, roi.radius, roi.width, min_y]
+
+        if roi.fitted_parameters and roi.fitted_parameters.get('method', None) == GaussianFit.METHOD:
+            try:
+                new_init_params = [roi.fitted_parameters[k] for k in GaussianFit.PARAM_NAMES]
+                for j, (l, i, u) in enumerate(zip(lower_bounds, new_init_params, upper_bounds)):
+                    if l <= i <= u:
+                        init_params[j] = i
+            except KeyError:
+                pass
+
         return init_params, lower_bounds, upper_bounds
 
     def _get_x_y(self, roi: Roi, x1: int, x2: int):
@@ -161,6 +171,8 @@ class GaussianFit(object):
             fit.init_curve = self.gauss(fit.x, *fit.fitted_params)
             fit.roi.fitted_parameters = dict(zip(self.PARAM_NAMES, fit.fitted_params))
             fit.roi.fitted_parameters['method'] = self.METHOD
+            fit.roi.radius = fit.roi.fitted_parameters['radius']
+            fit.roi.width = fit.roi.fitted_parameters['width']
 
         except RuntimeError:
             pass
