@@ -18,6 +18,11 @@ setup(
         long_description_content_type='text/markdown',
         license='GPLv3',
         python_requires='>=3.7.2',
+        entry_points={
+                "gui_scripts": [
+                    "giwaxs_gui = giwaxs_gui.__main__:run",
+                ]
+            },
         install_requires=[
             'numpy>=1.18.1',
             'opencv-python>=4.0.0.0',
@@ -26,7 +31,9 @@ setup(
             'PyQt5',
             'pyqtgraph==0.11.0rc0',
             'read_edf',
-            'Pillow'
+            'Pillow',
+            'qdarkstyle',
+            'qdarkgraystyle'
             ],
         include_package_data=True,
         keywords='xray python giwaxs scientific-analysis',

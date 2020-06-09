@@ -47,7 +47,7 @@ def get_folder_filepath(parent, message: str, *, show_files: bool = True) -> Pat
         return Path(folder_path)
 
 
-def show_error(err: str, *, error_title: str, info_text: str = ''):
+def show_error(err: str, *, error_title: str = 'Internal Error', info_text: str = ''):
     logger.info(f'Error message shown: {error_title} - {err} {info_text}.')
 
     mb = QMessageBox()
