@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt, pyqtSlot
 from ..app import App
 from .dock_area import AppDockArea
 from .basic_widgets import ToolBar
-from .tools import Icon, CSS
+from .tools import Icon, CSS, get_image_filepath, get_folder_filepath, save_file_dialog
 from .init_window import InitWindow
 
 
@@ -20,7 +20,9 @@ class DockAreaWidget(QMainWindow):
         self.app = App()
         self.__init_toolbar()
         self.__init_menubar()
+
         self.dock_area = AppDockArea()
+        self.app.fm.sigProjectClosed.connect(self.update_window_title)
 
         self.setCentralWidget(self.dock_area)
         self.update_window_title()
@@ -69,19 +71,26 @@ class DockAreaWidget(QMainWindow):
         pass
 
     @pyqtSlot(name='addExSitu')
-    def _add_ex_situ_file(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-        filepath, _ = QFileDialog.getOpenFileName(
-            self, 'Open image', '',
-            'edf, tiff files (*.tiff *.edf *edf.gz)', options=options)
+    def _add_file_dialog(self):
+        filepath = get_image_filepath(self)
         if filepath:
-            self.app.fm.add_ex_situ_data(Path(filepath))
+            self.app.fm.add_root_path_to_project(filepath)
+
+    def _save_as_h5(self):
+        path = save_file_dialog(self, title='Save project')
+        if path:
+            self.app.fm.save_as_h5(path)
+
+    def _add_folder_dialog(self):
+        filepath = get_folder_filepath(self, message='Choose directory containing images or h5 files')
+        if filepath:
+            self.app.fm.add_root_path_to_project(filepath)
 
     def __init_menubar(self):
         self.menubar = self.menuBar()
 
         # File menu
+
         self.file_menu = self.menubar.addMenu('File')
         self.file_menu.addAction('New project', self._new_project_dialog)
         recent_projects_menu = self.file_menu.addMenu('Recent projects')
@@ -90,15 +99,18 @@ class DockAreaWidget(QMainWindow):
             recent_projects_menu.addAction(project_path.name, lambda *x, p=project_path:
                                            self._on_opening_project(p))
 
+        # Save menu
+
+        self.save_menu = self.file_menu.addMenu('Save project as ...')
+        self.save_menu.addAction('Save as h5 file', self._save_as_h5)
+
         # Data menu
 
         self.data_menu = self.menubar.addMenu('Data')
-        self.real_time_menu = self.data_menu.addMenu('Real time measurements')
-        self.ex_situ_menu = self.data_menu.addMenu('Ex situ measurements')
+        self.add_data_menu = self.data_menu.addMenu('Add data')
 
-        self.real_time_menu.addAction('New measurement', self._new_real_time)
-        self.ex_situ_menu.addAction('Add file', self._add_ex_situ_file)
-        # self.ex_situ_menu.addAction('Add folder', self._add_ex_situ_folder)
+        self.add_data_menu.addAction('Add file', self._add_file_dialog)
+        self.add_data_menu.addAction('Add folder', self._add_folder_dialog)
 
         # Preferences menu
 
