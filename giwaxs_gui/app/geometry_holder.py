@@ -79,11 +79,14 @@ class GeometryHolder(QObject):
             self.log.info('Geometry not saved (default used)')
             return
 
-        if not self._fm.geometries.default.exists(self._current_key):
+        if not self._fm.geometries.default[self._current_key]:
             self.save_as_default()
         elif self._current_geometry != self._default_geometry:
             self._fm.geometries[self._current_key] = self._current_geometry
             self.log.info('Non-default geometry saved')
+        else:
+            del self._fm.geometries[self._current_key]
+            self.log.info('Non-default geometry deleted.')
 
     @pyqtSlot(tuple, bool, name='changeBeamCenter')
     def set_beam_center(self, beam_center: tuple, finished: bool = True):
