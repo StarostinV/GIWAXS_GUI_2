@@ -13,6 +13,8 @@ INTERPOLATION_ALGORITHMS = {
     'Lanczos': cv2.INTER_LANCZOS4
 }
 
+INTERPOLATION_ALGORITHMS_INVERSED = {v: k for k, v in INTERPOLATION_ALGORITHMS.items()}
+
 
 class InterpolationParams(NamedTuple):
     shape: Tuple[int, int] = (1024, 1024)
@@ -34,13 +36,11 @@ class PolarImage(object):
     def polar_params(self) -> InterpolationParams:
         return self._parameters
 
-    def set_shape(self, shape: Tuple[int, int], image: np.ndarray, geometry: Geometry):
-        if self.polar_params.shape == shape:
-            return
+    def set_params(self, shape: Tuple[int, int] = None, algorithm=None):
+        shape = shape or self.polar_params.shape
+        algorithm = algorithm if algorithm is not None else self.polar_params.algorithm
 
-        self._parameters = InterpolationParams(shape, self.polar_params.algorithm)
-
-        self.update(geometry, image)
+        self._parameters = InterpolationParams(shape, algorithm)
 
     def set_algorithm(self, algorithm: int, image: np.ndarray, geometry: Geometry):
         if self.polar_params.algorithm == algorithm:

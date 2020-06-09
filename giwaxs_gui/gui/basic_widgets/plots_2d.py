@@ -40,6 +40,9 @@ class CustomImageViewer(GraphicsLayoutWidget):
             self.image_item.resetTransform()
         self.set_default_range()
 
+    def clear(self):
+        self.image_item.clear()
+
     def set_default_range(self):
         if self.image_item.image is None:
             return

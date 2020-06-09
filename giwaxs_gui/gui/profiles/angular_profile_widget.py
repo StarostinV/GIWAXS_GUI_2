@@ -18,6 +18,7 @@ class AngularProfileWidget(AbstractRoiHolder, Smooth1DPlot):
 
     def _init_connect(self):
         App().image_holder.sigPolarImageChanged.connect(self._update)
+        App().image_holder.sigEmptyImage.connect(self.clear_plot)
         self._roi_dict.sig_roi_created.connect(self._update)
         self._roi_dict.sig_roi_deleted.connect(self._update)
         self._roi_dict.sig_roi_moved.connect(self._update)

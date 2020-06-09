@@ -82,6 +82,8 @@ class FileManager(QObject):
             self._delete_image_data(key)
         else:
             self._delete_folder(key)
+        if self._current_key in key:
+            self.change_image(None)
 
     def _delete_image_data(self, key: ImageKey):
         del self.geometries[key]

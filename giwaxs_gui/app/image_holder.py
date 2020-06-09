@@ -9,7 +9,8 @@ from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject
 from .rois.roi_dict import RoiDict, Roi
 from .geometry import Geometry
 from .geometry_holder import GeometryHolder
-from .polar_image import PolarImage, InterpolationParams
+from .polar_image import (PolarImage, InterpolationParams,
+                          INTERPOLATION_ALGORITHMS, INTERPOLATION_ALGORITHMS_INVERSED)
 from .file_manager import FileManager, ImageKey
 from .fitting import GaussianFit
 
@@ -19,6 +20,7 @@ class ImageHolder(QObject):
     sigPolarImageChanged = pyqtSignal()
     sigFitOpen = pyqtSignal(object)
     sigFitSaved = pyqtSignal(tuple)
+    sigEmptyImage = pyqtSignal()
 
     log = logging.getLogger(__name__)
 
@@ -72,7 +74,18 @@ class ImageHolder(QObject):
 
         self._roi_dict.save_and_clear()
 
+        if not image_key:
+            self.g_holder.change_image(None)
+            self._roi_dict.change_image(None)
+            self.sigEmptyImage.emit()
+            return
+
         image = self._fm.images[image_key]
+
+        if image is None:
+            self.sigEmptyImage.emit()
+            return
+
         polar_image = self._fm.polar_images[image_key]
         prev_geometry = self.geometry
 
@@ -88,7 +101,7 @@ class ImageHolder(QObject):
         self.sigImageChanged.emit()
         self.sigPolarImageChanged.emit()
 
-        self.g_holder.check_ring_bounds()
+        # self.g_holder.check_ring_bounds()
         self._roi_dict.change_image(image_key)
 
     def get_polar_image(self, image_key: ImageKey, save: bool = False):
@@ -130,6 +143,17 @@ class ImageHolder(QObject):
         if emit:
             self.sigImageChanged.emit()
 
+    def set_polar_image_params(self, params: dict):
+        shape = (params.get('phi_size', self.polar_params.shape[0]),
+                 params.get('r_size', self.polar_params.shape[1]))
+        algorithm = INTERPOLATION_ALGORITHMS.get(params.get('mode', None), self.polar_params.algorithm)
+        self.polar.set_params(shape=shape, algorithm=algorithm)
+        self.g_holder.set_polar_shape(shape)
+
+    def polar_image_params_dict(self):
+        return dict(phi_size=self.geometry.polar_shape[0], r_size=self.geometry.polar_shape[1],
+                    algorithm=INTERPOLATION_ALGORITHMS_INVERSED[self.polar_params.algorithm])
+
     def get_radial_profile(self) -> np.ndarray or None:
         return self.polar.get_radial_profile()
 
@@ -164,4 +188,3 @@ class ImageHolder(QObject):
         self._roi_dict.apply_fit([fit.roi for fit in g_fit.fits.values()], g_fit.image_key)
 
         self.sigFitSaved.emit((g_fit.image_key, name))
-

@@ -115,11 +115,26 @@ class FolderKey(AbstractKey):
         except ValueError:
             return
 
+    def __contains__(self, item):
+        if not (isinstance(item, AbstractKey)):
+            return False
+        if item == self:
+            return True
+        for image in self.image_children:
+            if image == item:
+                return True
+        return any((item in folder for folder in self.folder_children))
+
 
 class ImageKey(AbstractKey):
     @abstractmethod
     def get_image(self):
         pass
+
+    def __contains__(self, item):
+        if self == item:
+            return True
+        return False
 
 
 class PathKey(AbstractKey):
@@ -192,7 +207,7 @@ class FolderH5Key(FolderKey, H5Key):
             with File(str(self._h5path.resolve()), 'r') as f:
                 if self._h5key:
                     f = f[self._h5key]
-                for key in f.keys():
+                for key in sorted(list(f.keys())):
                     item = f[key]
                     if isinstance(item, Group):
                         if self.is_project and IMAGE_PROJECT_KEY in item.attrs.keys():
@@ -235,7 +250,7 @@ class FolderPathKey(FolderKey, PathKey):
     def update(self):
         super().update()
         try:
-            for p in self._path.iterdir():
+            for p in sorted(list(self._path.iterdir())):
                 if p.is_dir():
                     self._folder_children.append(FolderPathKey(self, path=p))
                 elif p.suffix in H5_FORMAT:

@@ -23,7 +23,9 @@ class RadialProfileWidget(AbstractRoiHolder, Smooth1DPlot):
     def __init__(self, parent=None):
         AbstractRoiHolder.__init__(self, 'RadialProfile')
         Smooth1DPlot.__init__(self, App().radial_profile, parent)
-        App().geometry_holder.sigScaleChanged.connect(self._update_axis)
+        self.app = App()
+        self.app.geometry_holder.sigScaleChanged.connect(self._update_axis)
+        self.app.image_holder.sigEmptyImage.connect(self.clear_plot)
         self._init_radial_toolbars()
         self._fit_params_dict: dict = PeaksSetupWindow.get_config()
         self._peaks_setup = None
@@ -57,12 +59,12 @@ class RadialProfileWidget(AbstractRoiHolder, Smooth1DPlot):
 
         create_roi_widget = RoundedPushButton(
             icon=Icon('add'), radius=30)
-        create_roi_widget.clicked.connect(lambda: App().roi_dict.create_roi())
+        create_roi_widget.clicked.connect(lambda: self.app.roi_dict.create_roi())
         segments_toolbar.addWidget(create_roi_widget)
 
         delete_selected_widget = ConfirmButton(
             Icon('delete'), text='Delete selected roi?')
-        delete_selected_widget.clicked.connect(App().roi_dict.delete_selected_roi)
+        delete_selected_widget.clicked.connect(self.app.roi_dict.delete_selected_roi)
         delete_selected_widget.label_widget.setStyleSheet(
             'QLabel { color : white ; }')
 
@@ -70,12 +72,12 @@ class RadialProfileWidget(AbstractRoiHolder, Smooth1DPlot):
         fix_all = RoundedPushButton(icon=Icon('fix_all'), radius=120, background_color=QColor(0, 0, 0, 0))
         fix_all.setFixedWidth(60)
         fix_all.setFixedHeight(30)
-        # fix_all.clicked.connect(self.fix_all)
+        fix_all.clicked.connect(self.app.roi_dict.fix_all)
         segments_toolbar.addWidget(fix_all)
         unfix_all = RoundedPushButton(icon=Icon('unfix_all'), radius=120, background_color=QColor(0, 0, 0, 0))
         unfix_all.setFixedWidth(60)
         unfix_all.setFixedHeight(30)
-        # unfix_all.clicked.connect(self.unfix_all)
+        unfix_all.clicked.connect(self.app.roi_dict.unfix_all)
         segments_toolbar.addWidget(unfix_all)
 
     # def _on_scale_changed(self):
@@ -99,7 +101,7 @@ class RadialProfileWidget(AbstractRoiHolder, Smooth1DPlot):
                 info_text=f'Number of found peaks ({len(peaks)}) exceeds the maximum number {max_num}. '
                           f'Consider increasing sigma for smoothing the radial profile.')
             return
-        w = self._fit_params_dict.get('init_width', 30)
+        w = self._fit_params_dict.get('init_width', 30) * App().geometry.scale
         for r in peaks:
             self._roi_dict.create_roi(radius=self.x[r], width=w)
 
