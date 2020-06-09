@@ -162,6 +162,7 @@ class FitWidget(QWidget):
             roi = widget.roi
             roi.active = False
             roi.movable = True
+            roi.fitted_parameters = None
             widget.unfix()
             if roi.key == self.selected_key:
                 self.radial_viewer.roi_widget.unfix()
