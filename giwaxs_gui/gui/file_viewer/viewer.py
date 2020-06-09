@@ -1,23 +1,13 @@
 from pathlib import Path
 
-from PyQt5.QtWidgets import (QTreeView, QFileDialog, QMenu,
+from PyQt5.QtWidgets import (QTreeView, QMenu,
                              QWidget, QHBoxLayout, QLabel)
 from PyQt5.QtGui import QStandardItem, QStandardItemModel
 from PyQt5.QtCore import Qt
 
 from ..basic_widgets import RoundedPushButton
-from ..tools import Icon
-from ...app.file_manager import FileManager, ImageKey
-
-AVAILABLE_FILE_FORMATS = tuple('.tif .tiff .edf .edf.gz'.split())
-
-
-def filter_files(path: Path):
-    yield from (p for p in path.iterdir() if p.suffix in AVAILABLE_FILE_FORMATS)
-
-
-def filter_dirs(path: Path):
-    yield from (p for p in path.iterdir() if p.is_dir())
+from ..tools import Icon, get_folder_filepath, get_image_filepath
+from ...app.file_manager import FileManager, ImageKey, FolderKey, GLOB_IMAGE_FORMATS
 
 
 class FileModel(QStandardItemModel):
@@ -35,34 +25,35 @@ class ImageItem(QStandardItem):
     def __init__(self, key: ImageKey):
         super().__init__(key.name)
         self.key: ImageKey = key
-        self.path: Path = self.key.path
         self.setIcon(Icon('data'))
 
 
 class FolderItem(QStandardItem):
 
-    def __init__(self, path: Path, is_parsed: bool = False):
-        super().__init__(path.name)
-        self.path: Path = path
-        self._is_parsed = is_parsed
-
-    @property
-    def is_parsed(self):
-        return self._is_parsed
+    def __init__(self, key: FolderKey):
+        super().__init__(key.name)
+        self.key = key
+        self.setIcon(Icon('folder'))
+        self._updated: bool = False
 
     def on_clicked(self):
-        if not self.is_parsed:
+        if not self._updated:
             self.update()
+        self._updated = True
+
+    def _fill(self):
+        for folder in self.key.folder_children:
+            self.appendRow(FolderItem(folder))
+        for image in self.key.image_children:
+            self.appendRow(ImageItem(image))
 
     def update(self):
-        if self.is_parsed:
-            self.removeRows(0, self.rowCount())
-        self._is_parsed = True
-        for path in sorted(list(filter_dirs(self.path))):
-            self.appendRow(FolderItem(path))
+        self.clear()
+        self.key.update()
+        self._fill()
 
-        for path in sorted(list(filter_files(self.path))):
-            self.appendRow(ImageItem(ImageKey(path)))
+    def clear(self):
+        self.removeRows(0, self.rowCount())
 
 
 class FileViewer(QTreeView):
@@ -76,8 +67,7 @@ class FileViewer(QTreeView):
         self._fm.sigNewFile.connect(self._add_new_file)
         self._fm.sigNewFolder.connect(self._add_new_folder)
         self._fm.sigProjectClosed.connect(self._model.new_project)
-        # self._fm.sigExSituAddedFile.connect(self._add_ex_situ)
-        # self._fm.sigPathsChanged.connect(self._update_paths)
+
         self.selectionModel().currentChanged.connect(self._on_clicked)
         self.customContextMenuRequested.connect(self._context_menu)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -109,8 +99,8 @@ class FileViewer(QTreeView):
     def _add_new_file(self, key: ImageKey):
         self._model.appendRow(ImageItem(key))
 
-    def _add_new_folder(self, path: Path):
-        self._model.appendRow(FolderItem(path))
+    def _add_new_folder(self, key: FolderKey):
+        self._model.appendRow(FolderItem(key))
 
     def _on_clicked(self, index):
         item = self._model.itemFromIndex(index)
@@ -121,21 +111,14 @@ class FileViewer(QTreeView):
             self.setExpanded(item.index(), True)
 
     def _open_add_file_menu(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-        filepath, _ = QFileDialog.getOpenFileName(
-            self, 'Open image', '',
-            'edf, tiff files (*.tiff *.edf *.tif *.edf.gz)', options=options)
-        if filepath:
-            self._fm.add_ex_situ_data(Path(filepath))
+        path = get_image_filepath(self)
+        if path:
+            self._fm.add_root_path_to_project(path)
 
     def _open_add_folder_menu(self):
-        options = QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
-        folder_path = QFileDialog.getExistingDirectory(
-            self, 'Choose directory containing edf or tiff files', '',
-            options=options)
-        if folder_path:
-            self._fm.add_ex_situ_data(Path(folder_path))
+        path = get_folder_filepath(self, message='Choose directory containing images or h5 files')
+        if path:
+            self._fm.add_root_path_to_project(path)
 
     def _context_menu(self, position):
         item = self._model.itemFromIndex(self.indexAt(position))
@@ -158,4 +141,4 @@ class FileViewer(QTreeView):
     def _remove_item(self, item: FolderItem or ImageItem):
         parent = item.parent() or self._model
         parent.removeRow(item.row())
-        self._fm.remove_path(item.path)
+        self._fm.remove_key(item.key)
