@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 # -*- coding: utf-8 -*-
 
-from abc import abstractmethod
-
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QMenu, QWidgetAction, QLineEdit
 
@@ -29,6 +27,8 @@ class RoiContextMenu(AbstractRoiContextMenu):
         self._init_type_menu()
         self.addSeparator()
         self._init_fix_menu()
+        self.addSeparator()
+        self._init_copy_menu()
         self.addSeparator()
         self._init_select_menu()
         self.addSeparator()
@@ -103,3 +103,11 @@ class RoiContextMenu(AbstractRoiContextMenu):
         fit_selected.triggered.connect(lambda: self.roi_dict.open_fit_rois(True))
         fit_selected = fit_menu.addAction('Fit all rois')
         fit_selected.triggered.connect(lambda: self.roi_dict.open_fit_rois(False))
+
+    def _init_copy_menu(self):
+        copy_menu = self.addMenu('Copy/Paste')
+        copy_menu.addAction('Copy roi', lambda: self.roi_dict.copy_rois(self.roi.key))
+        copy_menu.addAction('Copy selected rois', lambda: self.roi_dict.copy_rois('selected'))
+        copy_menu.addAction('Copy all rois', lambda: self.roi_dict.copy_rois('all'))
+        if self.roi_dict.is_copied:
+            copy_menu.addAction('Paste rois', lambda: self.roi_dict.paste_rois())

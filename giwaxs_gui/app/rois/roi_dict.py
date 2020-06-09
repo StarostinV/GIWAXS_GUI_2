@@ -37,10 +37,15 @@ class RoiDict(QObject):
 
     def __init__(self, file_manager: FileManager, geometry_holder: GeometryHolder):
         super().__init__()
-        self._geometry_holder = geometry_holder
+        self._geometry_holder: GeometryHolder = geometry_holder
         self._fm: FileManager = file_manager
-        self._roi_data = RoiData(0)
+        self._roi_data: RoiData = RoiData()
         self._current_key: ImageKey or None = None
+        self._copied_rois: CopiedRois = CopiedRois()
+
+    @property
+    def is_copied(self):
+        return len(self._copied_rois) > 0
 
     @property
     def ring_bounds(self) -> Tuple[float, float]:
@@ -65,6 +70,8 @@ class RoiDict(QObject):
     def change_image(self, image_key: ImageKey):
         self.clear()
         self._current_key = image_key
+        if not self._current_key:
+            return
         self._update()
 
     # def _update_real_time(self):
@@ -307,6 +314,24 @@ class RoiDict(QObject):
         except KeyError:
             return
 
+    def copy_rois(self, key: int or str = 'selected'):
+        if key == 'selected':
+            rois = self.selected_rois
+        elif key == 'all':
+            rois = list(self.values())
+        else:
+            try:
+                rois = [self[key]]
+            except KeyError:
+                return
+        if rois:
+            self._copied_rois.copy_rois(rois, self._geometry_holder.geometry)
+
+    def paste_rois(self):
+        if not self._current_key or not len(self._copied_rois):
+            return
+        self.add_rois(self._copied_rois.paste(self._geometry_holder.geometry))
+
     @pyqtSlot(bool, name='openFitRois')
     def open_fit_rois(self, only_selected: bool):
         if only_selected:
@@ -326,6 +351,7 @@ class RoiDict(QObject):
             self.sig_roi_created.emit(keys_to_create)
             self.sig_roi_moved.emit(keys_to_move, self.EMIT_NAME)
             self.sig_fixed.emit(keys_to_move)
+            self.sig_selected.emit(keys_to_move)
 
         else:
             roi_data = self._fm.rois_data[image_key] or RoiData()
@@ -333,3 +359,54 @@ class RoiDict(QObject):
             self._fm.rois_data[image_key] = roi_data
 
 
+class CopiedRois(object):
+    def __init__(self, rois: List[Roi] = None, geometry=None):
+        self._rois = None
+        self._scale = None
+        self._bounds = None
+
+        if rois and geometry:
+            self.copy_rois(rois, geometry)
+
+    def __len__(self):
+        return len(self._rois) if self._rois else 0
+
+    def copy_rois(self, rois: List[Roi], geometry):
+        self._rois = deepcopy(rois)
+
+        for roi in self._rois:
+            roi.active = True
+
+        self._scale = geometry.scale
+        self._bounds = geometry.ring_bounds
+
+    def paste(self, geometry, *, clear_keys: bool = True,
+              clear: bool = False):
+        if not self._rois:
+            return
+
+        if clear:
+            rois = self._rois
+            self.clear()
+        else:
+            rois = deepcopy(self._rois)
+
+        if self._scale != geometry.scale:
+            s = geometry.scale / self._scale
+            for roi in rois:
+                roi.radius *= s
+                roi.width *= s
+        if self._bounds != geometry.ring_bounds:
+            for roi in rois:
+                if roi.type == RoiTypes.ring:
+                    roi.angle, roi.angle_std = geometry.ring_bounds
+        if clear_keys:
+            for roi in rois:
+                roi.key = None
+
+        return rois
+
+    def clear(self):
+        self._rois = None
+        self._scale = None
+        self._bounds = None
