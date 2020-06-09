@@ -190,6 +190,7 @@ class Geometry(object):
     def update_polar(self):
         self._update_polar_grid()
         self._r *= self.scale
+        self._polar_aspect_ratio /= self.scale
 
     def _update_ranges(self):
         self._y = (np.arange(self._shape[1]) - self._beam_center.y)
