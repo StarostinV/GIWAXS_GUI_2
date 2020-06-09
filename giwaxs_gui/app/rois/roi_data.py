@@ -126,13 +126,15 @@ class RoiData(dict):
         rois_to_create = []
 
         for roi in rois:
+            roi.active = True
+            roi.movable = False
+
             if roi.key in self.keys():
                 keys_to_move.append(roi.key)
                 self[roi.key].update(roi)
+                self.select(roi.key)
             else:
-                roi.active = False
                 rois_to_create.append(roi)
-            roi.movable = False
 
         self.add_rois(rois_to_create)
         keys_to_create = [roi.key for roi in rois_to_create]
