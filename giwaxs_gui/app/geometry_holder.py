@@ -48,13 +48,16 @@ class GeometryHolder(QObject):
     def is_default(self) -> bool:
         return self._current_geometry is None
 
-    def change_image(self, image_key: ImageKey, image: np.ndarray):
+    def change_image(self, image_key: ImageKey, image: np.ndarray = None):
         if image_key == self._current_key:
             return
 
         self.save_state()
 
         self._current_key = image_key
+        if not self._current_key:
+            return
+
         self._default_geometry = self._fm.geometries.default[image_key] or Geometry()
         self._current_geometry = self._fm.geometries[image_key]
 
