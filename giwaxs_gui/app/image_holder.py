@@ -156,7 +156,10 @@ class ImageHolder(QObject):
     def apply_fit(self, g_fit: GaussianFit):
         name = dt.now().ctime()
         g_fit.name = name
+        parent = g_fit.image_key.parent
+        g_fit.image_key.remove_parent()
         self._fm.fits[g_fit.image_key, name] = g_fit
+        g_fit.image_key.set_parent(parent)
 
         self._roi_dict.apply_fit([fit.roi for fit in g_fit.fits.values()], g_fit.image_key)
 
