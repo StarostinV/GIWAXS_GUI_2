@@ -7,7 +7,6 @@ from .roi import Roi, RoiTypes
 from .roi_data import RoiData
 from ..file_manager import FileManager, ImageKey
 from ..geometry_holder import GeometryHolder
-from ..file_manager import AnalysisRegimes
 
 
 def _check_non_empty(func):
@@ -65,29 +64,21 @@ class RoiDict(QObject):
 
     def change_image(self, image_key: ImageKey):
         self.clear()
-
         self._current_key = image_key
+        self._update()
 
-        if self._current_key.regime == AnalysisRegimes.real_time:
+    # def _update_real_time(self):
+    #
+    #     roi_data = self._fm.rois_data[self._current_key] or RoiData()
+    #     prev_key = self._current_key.get_previous()
+    #     if prev_key:
+    #         prev_data = self._fm.rois_data[prev_key] or RoiData()
+    #     else:
+    #         prev_data = RoiData()
+    #
+    #     self._merge_data(roi_data, prev_data)
 
-            self._update_real_time()
-
-        else:
-
-            self._update_ex_situ()
-
-    def _update_real_time(self):
-
-        roi_data = self._fm.rois_data[self._current_key] or RoiData()
-        prev_key = self._current_key.get_previous()
-        if prev_key:
-            prev_data = self._fm.rois_data[prev_key] or RoiData()
-        else:
-            prev_data = RoiData()
-
-        self._merge_data(roi_data, prev_data)
-
-    def _update_ex_situ(self):
+    def _update(self):
         self._roi_data = self._fm.rois_data[self._current_key] or RoiData()
         self._roi_data.change_ring_bounds(self._geometry_holder.geometry.ring_bounds)
         if len(self._roi_data):
@@ -212,8 +203,7 @@ class RoiDict(QObject):
 
     @_check_non_empty
     def delete_roi(self, key: int):
-        true_delete = self._current_key.regime == AnalysisRegimes.ex_situ
-        self._roi_data.delete_roi(key, true_delete)
+        self._roi_data.delete_roi(key)
         self.sig_roi_deleted.emit((key,))
 
     @_check_non_empty
