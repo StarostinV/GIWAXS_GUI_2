@@ -1,25 +1,31 @@
 from pathlib import Path
 
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QSizePolicy,
-                             QApplication, QStyleFactory, QMessageBox,
+                             QApplication, QShortcut, QMessageBox,
                              QFileDialog)
 from PyQt5.QtCore import Qt, pyqtSlot
+from PyQt5.QtGui import QKeySequence
+
+import qdarkstyle
+import qdarkgraystyle
 
 from ..app import App
 from .dock_area import AppDockArea
 from .basic_widgets import ToolBar
-from .tools import Icon, CSS, get_image_filepath, get_folder_filepath, save_file_dialog
+from .tools import Icon, get_image_filepath, get_folder_filepath, save_file_dialog
+
 from .init_window import InitWindow
 
 
-class DockAreaWidget(QMainWindow):
+class GIWAXSMainWindow(QMainWindow):
     _MinimumSize = (500, 500)
 
     def __init__(self, parent=None):
-        super(DockAreaWidget, self).__init__(parent=parent)
+        super(GIWAXSMainWindow, self).__init__(parent=parent)
         self.app = App()
-        self.__init_toolbar()
-        self.__init_menubar()
+        self._init_toolbar()
+        self._init_shortcuts()
+        self._init_menubar()
 
         self.dock_area = AppDockArea()
         self.app.fm.sigProjectClosed.connect(self.update_window_title)
@@ -86,7 +92,7 @@ class DockAreaWidget(QMainWindow):
         if filepath:
             self.app.fm.add_root_path_to_project(filepath)
 
-    def __init_menubar(self):
+    def _init_menubar(self):
         self.menubar = self.menuBar()
 
         # File menu
@@ -116,19 +122,37 @@ class DockAreaWidget(QMainWindow):
 
         self.preferences = self.menubar.addMenu('Preferences')
         self.themes_menu = self.preferences.addMenu('Themes')
-        themes = CSS.list_css()
+        themes = ['Dark', 'Gray Dark']
         # themes = CSS.list_css() + QStyleFactory.keys()
         for theme in themes:
             theme_action = self.themes_menu.addAction(theme)
             theme_action.triggered.connect(lambda *x, t=theme: self.set_style(t))
 
-    def __init_toolbar(self):
-        # self.toolbar = self.addToolBar('File manager')
-        #
-        # open_image_action = QAction(Icon('add'), 'Open image', self)
-        # open_image_action.setShortcut('Ctrl+A')
-        # open_image_action.triggered.connect(self._open_image_dialog)
-        # self.toolbar.addAction(open_image_action)
+    def _init_shortcuts(self):
+        self.copy_shortcut = QShortcut(QKeySequence("Ctrl+C"), self)
+        self.copy_shortcut.activated.connect(lambda *x: self.app.roi_dict.copy_rois('selected'))
+
+        self.paste_shortcut = QShortcut(QKeySequence("Ctrl+V"), self)
+        self.paste_shortcut.activated.connect(lambda *x: self.app.roi_dict.paste_rois())
+
+        self.select_shortcut = QShortcut(QKeySequence("Ctrl+A"), self)
+        self.select_shortcut.activated.connect(lambda *x: self.app.roi_dict.select_all())
+
+        self.delete_shortcut = QShortcut(QKeySequence('Del'), self)
+        self.delete_shortcut.activated.connect(lambda *x: self.app.roi_dict.delete_selected_roi())
+
+        self.fit_shortcut = QShortcut(QKeySequence('Ctrl+F'), self)
+        self.fit_shortcut.activated.connect(lambda *x: self.app.roi_dict.open_fit_rois(True))
+
+        def raise_err(*_):
+            raise ValueError('Congratulations, you found an error combination used for testing! '
+                             'Your project will be deleted in 3 seconds...')
+
+        self.raise_shortcut = QShortcut(QKeySequence('Ctrl+R'), self)
+        self.raise_shortcut.activated.connect(raise_err)
+
+    def _init_toolbar(self):
+
         docks_toolbar = ToolBar('Docks', self)
         self.addToolBar(docks_toolbar)
 
@@ -162,21 +186,19 @@ class DockAreaWidget(QMainWindow):
             self.setWindowState(Qt.WindowFullScreen)
             self.fullscreen_action.setIcon(Icon('fromfullscreen'))
 
-    def set_style(self, name: str = None):
-        if not name:
-            name = self.app.fm.config['style'] or CSS.default
-            if not name:
-                return
-        css = CSS.get_css(name)
+    def set_style(self, name: str = 'Gray Dark'):
         qapp = QApplication.instance()
         if not qapp:
             raise RuntimeError('No running application found.')
-        if css:
+        if name == 'Dark':
             qapp.setStyleSheet('')
-            qapp.setStyleSheet(css)
+            qapp.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
+        elif name == 'Gray Dark':
+            qapp.setStyleSheet('')
+            qapp.setStyleSheet(qdarkgraystyle.load_stylesheet_pyqt5())
         else:
-            qapp.setStyleSheet('')
-            qapp.setStyle(name)
+            return
+
         self.app.fm.config['style'] = name
 
     def close(self):
