@@ -1,5 +1,7 @@
 from typing import List, Tuple
 
+import numpy as np
+
 from .roi import Roi, RoiTypes
 
 
@@ -70,7 +72,7 @@ class RoiData(dict):
         return to_unselect
 
     def add_roi(self, roi: Roi) -> None:
-        if roi.key is None:
+        if roi.key is None or roi.key < 0:
             roi.key = self._new_key
             self._new_key += 1
         self[roi.key] = roi
@@ -90,11 +92,9 @@ class RoiData(dict):
             keys.append(roi.key)
         return to_select
 
-    def delete_roi(self, k: int, true_delete: bool = True):
-        if true_delete:
-            del self[k]
-        else:
-            self[k].deleted = True
+    def delete_roi(self, k: int):
+        del self[k]
+
         if k in self._selected_keys:
             self._selected_keys.remove(k)
 
@@ -139,3 +139,9 @@ class RoiData(dict):
 
         return tuple(keys_to_create), tuple(keys_to_move)
 
+    def to_array(self) -> np.ndarray:
+        return np.array([roi.to_array() for roi in self.values()])
+
+    @classmethod
+    def from_array(cls, arr: np.ndarray):
+        return cls([Roi.from_array(a) for a in arr])
