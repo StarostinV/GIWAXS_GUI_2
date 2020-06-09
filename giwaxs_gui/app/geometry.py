@@ -7,8 +7,8 @@ from .transformations import TransformationsHolder
 
 
 class AxesScale(object):
-    def __init__(self):
-        self._scale = 1.
+    def __init__(self, scale: float = 1):
+        self._scale = scale
         self._prev_scale = 1.
 
     @property
@@ -33,12 +33,21 @@ class BeamCenter(NamedTuple):
 
 
 class Geometry(object):
-    def __init__(self):
-        self._beam_center = BeamCenter()
-        self._scale = AxesScale()
+    def __init__(self, *, beam_center: tuple = (0, 0),
+                 scale: float = 1.,
+                 shape: Tuple[int, int] = (10, 10),
+                 polar_shape: Tuple[int, int] = (512, 512),
+                 t_key: str = None, update: bool = True,
+                 **kwargs):
+
+        self._beam_center = BeamCenter(*beam_center)
+        self._scale = AxesScale(scale)
         self._transforms = TransformationsHolder()
-        self._shape = (10, 10)
-        self._polar_shape = (256, 256)
+        if t_key:
+            self._transforms.update(t_key)
+        self._shape = tuple(shape)
+        self._polar_shape = tuple(polar_shape)
+
         self._r_range = (0, 1)
         self._phi_range = (0, 2 * np.pi)
         self._ring_bounds = (0, 2 * np.pi)
@@ -46,6 +55,24 @@ class Geometry(object):
         self._y = self._z = None
         self._polar_zz = self._polar_yy = None
         self._polar_aspect_ratio = None
+
+        if update:
+            self.update()
+
+    def to_dict(self) -> dict:
+        return dict(beam_center=tuple(self.beam_center),
+                    shape=self.shape,
+                    scale=self.scale,
+                    t_key=self.t.key,
+                    polar_shape=self.polar_shape)
+
+    @staticmethod
+    def keys():
+        return 'beam_center', 'shape', 'scale', 't_key', 'polar_shape'
+
+    @classmethod
+    def fromdict(cls, d: dict):
+        return cls(**d)
 
     def __eq__(self, other):
         if type(other) != Geometry:
