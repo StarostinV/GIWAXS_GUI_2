@@ -3,14 +3,48 @@ from pathlib import Path
 from typing import List
 
 from PyQt5.QtWidgets import (QGraphicsColorizeEffect, QLineEdit,
-                             QWidget, QApplication, QMessageBox)
+                             QWidget, QApplication, QMessageBox,
+                             QFileDialog)
 from PyQt5.QtCore import QPropertyAnimation, Qt
 from PyQt5.QtGui import QColor, QIcon
+
+from ..app.file_manager import GLOB_IMAGE_FORMATS
 
 ICON_PATH: Path = Path(__file__).parents[1] / 'static' / 'icons'
 CSS_PATH: Path = Path(__file__).parents[1] / 'static' / 'css'
 
 logger = logging.getLogger(__name__)
+
+
+def save_file_dialog(parent, title: str = 'Save File', file_format: str = 'H5 file (*.h5)'
+                     ):
+    options = QFileDialog.Options()
+    options |= QFileDialog.DontUseNativeDialog
+    filename, _ = QFileDialog.getSaveFileName(parent, title, '', file_format, options=options)
+    if filename:
+        return Path(filename)
+
+
+def get_image_filepath(parent, message: str = 'Open image') -> Path or None:
+    options = QFileDialog.Options()
+    options |= QFileDialog.DontUseNativeDialog
+    filepath, _ = QFileDialog.getOpenFileName(
+        parent, message, '',
+        GLOB_IMAGE_FORMATS, options=options)
+    if filepath:
+        return Path(filepath)
+
+
+def get_folder_filepath(parent, message: str, *, show_files: bool = True) -> Path or None:
+    options = QFileDialog.DontResolveSymlinks | QFileDialog.DontUseNativeDialog
+    if not show_files:
+        options |= QFileDialog.ShowDirsOnly
+
+    folder_path = QFileDialog.getExistingDirectory(
+        parent, message, '',
+        options=options)
+    if folder_path:
+        return Path(folder_path)
 
 
 def show_error(err: str, *, error_title: str, info_text: str = ''):
