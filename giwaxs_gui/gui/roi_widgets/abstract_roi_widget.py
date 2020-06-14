@@ -62,6 +62,14 @@ class AbstractRoiWidget(object):
     def roi(self):
         return self._roi
 
+    def set_roi(self, roi: Roi, update: bool = True):
+        self._roi = roi
+        if update:
+            if not self.roi.movable:
+                self.fix()
+            self.update_color()
+            self.move_roi()
+
     @abstractmethod
     def set_color(self, color):
         pass
