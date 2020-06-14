@@ -12,7 +12,6 @@ class _ReadNpy(_ObjectFileManager):
 
     @staticmethod
     def _get_pickle(path: Path):
-        try:
+        if path.is_file():
             return np.load(str(path.resolve()) + '.npy', allow_pickle=True)
-        except FileNotFoundError:
-            return
+

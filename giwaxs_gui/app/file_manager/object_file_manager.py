@@ -46,11 +46,9 @@ class _ObjectFileManager(object):
 
     @staticmethod
     def _get_pickle(path: Path):
-        try:
+        if path.is_file():
             with open(str(path.resolve()), 'rb') as f:
                 return pickle.load(f)
-        except FileNotFoundError:
-            return
 
     @staticmethod
     def _del_pickle(path: Path):
