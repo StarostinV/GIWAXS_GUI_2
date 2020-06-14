@@ -12,7 +12,7 @@ from .geometry_holder import GeometryHolder
 from .polar_image import (PolarImage, InterpolationParams,
                           INTERPOLATION_ALGORITHMS, INTERPOLATION_ALGORITHMS_INVERSED)
 from .file_manager import FileManager, ImageKey
-from .fitting import GaussianFit
+from .fitting import FitObject, GaussianFit, GaussianFit2
 
 
 class ImageHolder(QObject):
@@ -104,20 +104,22 @@ class ImageHolder(QObject):
         # self.g_holder.check_ring_bounds()
         self._roi_dict.change_image(image_key)
 
-    def get_polar_image(self, image_key: ImageKey, save: bool = False):
+    def get_data_by_key(self, image_key: ImageKey, save: bool = False):
         polar_image = self._fm.polar_images[image_key]
-        if polar_image is not None:
-            return polar_image
         image = self._fm.images[image_key]
         geometry = self.g_holder.get_geometry(image_key)
+        if image is None or geometry is None:
+            return None, None, None
+
         image = geometry.t(image)
         if geometry.shape != image.shape:
             geometry.set_shape(image.shape)
-        yy, zz = geometry.polar_grids
-        polar_image = self.polar.calc_polar_image(image, yy, zz, self.polar_params.algorithm)
-        if save:
-            self._fm.polar_images[image_key] = polar_image
-        return polar_image
+        if polar_image is None:
+            yy, zz = geometry.polar_grids
+            polar_image = self.polar.calc_polar_image(image, yy, zz, self.polar_params.algorithm)
+            if save:
+                self._fm.polar_images[image_key] = polar_image
+        return image, polar_image, geometry
 
     # def set_image(self, img: np.ndarray, polar_image: np.ndarray = None):
     #     self._raw_image = img
@@ -170,14 +172,14 @@ class ImageHolder(QObject):
 
     @pyqtSlot(list, name='openFitRois')
     def open_fit_rois(self, rois: List[Roi]):
-        g_fit = GaussianFit(self._current_key, self.polar_image,
+        g_fit = GaussianFit2(self._current_key, self.polar_image,
                             self.geometry.r_axis, self.geometry.phi_axis)
         for roi in rois:
             g_fit.add(roi)
         self.sigFitOpen.emit(g_fit)
 
     @pyqtSlot(object, name='applyFit')
-    def apply_fit(self, g_fit: GaussianFit):
+    def apply_fit(self, g_fit: FitObject):
         name = dt.now().ctime()
         g_fit.name = name
         parent = g_fit.image_key.parent
