@@ -1,3 +1,6 @@
+from datetime import datetime as dt
+from pathlib import Path
+
 from .object_file_manager import _ObjectFileManager
 
 # TODO save fits to h5
@@ -40,3 +43,31 @@ class _ReadFits(_ObjectFileManager):
         except Exception as err:
             self.log.exception(err)
             return
+
+    def get_multi_fit(self):
+        return MultiFitFileManager(self.project_structure)
+
+
+class MultiFitFileManager(_ObjectFileManager):
+    NAME = 'fits'
+
+    def __init__(self, project_structure):
+        super().__init__(project_structure)
+        self.folder: Path = self.folder / dt.now().strftime('multi fit %d %m %y - %H %M %S')
+        self.folder.mkdir()
+
+    def __getitem__(self, item):
+        fit_object = super().__getitem__(item)
+        if fit_object:
+            fit_object.image_key = item
+            return fit_object
+
+    def __setitem__(self, key, value):
+        value.image_key = None
+        super().__setitem__(key, value)
+        value.image_key = key
+
+    def delete(self):
+        for path in self.folder.iterdir():
+            path.unlink()
+        self.folder.rmdir()
