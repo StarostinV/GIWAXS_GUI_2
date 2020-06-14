@@ -16,8 +16,9 @@ class InitWindow(QWidget):
 
     def __init__(self, recent_projects: List[Path] = None):
         flags = Qt.WindowFlags()
-        flags |= Qt.WindowStaysOnTopHint
+        flags |= Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint
         super().__init__(flags=flags)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.setWindowTitle('GIWAXS analysis')
         self.setWindowIcon(Icon('window_icon'))
         self.__init_ui(recent_projects)
