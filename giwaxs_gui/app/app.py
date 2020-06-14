@@ -1,3 +1,5 @@
+import logging
+
 from .rois.roi_dict import RoiDict
 from .file_manager import FileManager
 from .utils import SingletonMeta
@@ -5,9 +7,12 @@ from .geometry import Geometry
 from .geometry_holder import GeometryHolder
 from .image_holder import ImageHolder
 from .profiles import RadialProfile, AngularProfile
+from .debug_tracker import TrackQObjects
 
 
 class App(metaclass=SingletonMeta):
+    log = logging.getLogger(__name__)
+
     def __init__(self):
         self.fm: FileManager = FileManager()
         self.geometry_holder = GeometryHolder(self.fm)
@@ -24,6 +29,11 @@ class App(metaclass=SingletonMeta):
 
         self.fm.sigActiveImageChanged.connect(self.image_holder.change_image)
         self.fm.sigProjectIsClosing.connect(self.save_state)
+
+        if self.log.level <= logging.DEBUG:
+            self.debug_tracker: TrackQObjects = TrackQObjects()
+        else:
+            self.debug_tracker: TrackQObjects = None
 
     def save_state(self):
         self.geometry_holder.save_state()

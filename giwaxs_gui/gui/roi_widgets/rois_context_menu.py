@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# -*- coding: utf-8 -*-
 
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QMenu, QWidgetAction, QLineEdit
@@ -16,6 +15,10 @@ class AbstractRoiContextMenu(QMenu):
         self.key = roi.key
         self.roi_dict = App().roi_dict
         self._init_menu()
+
+        if App().debug_tracker:
+            App().debug_tracker.add_object(self)
+
         self.exec_(QCursor.pos())
         # self.exec_(ev.globalPos())
 
@@ -40,12 +43,10 @@ class RoiContextMenu(AbstractRoiContextMenu):
         fix_menu = self.addMenu('Fix/Unfix')
         if self.roi.movable:
             fix_action = fix_menu.addAction('Fix roi')
-            fix_action.triggered.connect(
-                lambda: self.roi_dict.fix_roi(self.key))
+            fix_action.triggered.connect(lambda: self.roi_dict.fix_roi(self.key))
         else:
             fix_action = fix_menu.addAction('Unfix roi')
-            fix_action.triggered.connect(
-                lambda: self.roi_dict.unfix_roi(self.key))
+            fix_action.triggered.connect(lambda: self.roi_dict.unfix_roi(self.key))
 
         fix_selected = fix_menu.addAction('Fix selected roi')
         fix_selected.triggered.connect(self.roi_dict.fix_selected)
@@ -85,10 +86,10 @@ class RoiContextMenu(AbstractRoiContextMenu):
     def _init_type_menu(self):
         if self.roi.type == RoiTypes.ring:
             new_type = RoiTypes.segment
-            change_type_name = new_type.value
+            change_type_name = 'segment'
         else:
             new_type = RoiTypes.ring
-            change_type_name = new_type.value
+            change_type_name = 'ring'
         change_type_action = self.addAction(f'Change type to {change_type_name}')
         change_type_action.triggered.connect(
             lambda: self._change_roi_type(new_type))

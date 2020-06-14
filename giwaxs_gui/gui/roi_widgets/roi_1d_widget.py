@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 
-
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 
 from pyqtgraph import LinearRegionItem
 
-from ...app.rois.roi import Roi
+from ...app import Roi, App
 
 from .abstract_roi_widget import AbstractRoiWidget
 
@@ -26,6 +25,9 @@ class Roi1D(AbstractRoiWidget, LinearRegionItem):
         LinearRegionItem.__init__(self)
         self.sigRegionChanged.connect(self.roi_is_moving)
         self.update_roi()
+
+        if App().debug_tracker:
+            App().debug_tracker.add_object(self, roi.name)
 
     def roi_is_moving(self):
         if self.moving:

@@ -5,7 +5,7 @@ from PyQt5.QtGui import QPainter, QPen, QPainterPath
 
 from pyqtgraph import ROI
 
-from ...app.rois.roi import Roi
+from ...app import Roi, App
 from .abstract_roi_widget import AbstractRoiWidget
 
 
@@ -28,6 +28,9 @@ class Roi2DRing(AbstractRoiWidget, ROI):
 
         self.set_radius(self._radius)
         self.update_roi()
+
+        if App().debug_tracker:
+            App().debug_tracker.add_object(self, roi.name)
 
     @pyqtSlot(name='move_roi')
     def move_roi(self):

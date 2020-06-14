@@ -2,7 +2,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 
 from pyqtgraph import RectROI
 
-from ...app.rois.roi import Roi
+from ...app import Roi, App
 from .abstract_roi_widget import AbstractRoiWidget
 
 
@@ -26,6 +26,10 @@ class Roi2DRect(AbstractRoiWidget, RectROI):
         self.handle.hide()  # how to remove???
         self.sigRegionChanged.connect(self._handle_is_moving)
         self.update_roi()
+
+        if App().debug_tracker:
+            App().debug_tracker.add_object(self, roi.name)
+
 
     def _handle_is_moving(self):
         for h in self.handles:
