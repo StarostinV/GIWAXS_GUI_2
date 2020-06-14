@@ -27,7 +27,7 @@ class GIWAXSMainWindow(QMainWindow):
         self._init_shortcuts()
         self._init_menubar()
 
-        self.dock_area = AppDockArea()
+        self.dock_area = AppDockArea(self)
         self.app.fm.sigProjectClosed.connect(self.update_window_title)
 
         self.setCentralWidget(self.dock_area)
