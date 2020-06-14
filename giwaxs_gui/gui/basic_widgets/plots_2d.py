@@ -2,8 +2,31 @@
 
 import numpy as np
 
+from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtWidgets import QWidgetAction
+
 from pyqtgraph import (GraphicsLayoutWidget, setConfigOptions,
                        ImageItem, HistogramLUTItem)
+from pyqtgraph.graphicsItems.ViewBox.ViewBoxMenu import ViewBoxMenu
+
+from giwaxs_gui.gui.basic_widgets.sliders import LabeledSlider
+
+
+class CustomViewBoxMenu(ViewBoxMenu):
+    sigSigmaChanged = pyqtSignal(float)
+    sigRangeAsDefault = pyqtSignal()
+
+    def __init__(self, view, sigma: float = 3):
+        super().__init__(view)
+        self.slider = LabeledSlider('Clip sigma factor', bounds=(0.001, 4),
+                                    value=sigma, parent=self)
+        self.slider.valueChanged.connect(self.sigSigmaChanged.emit)
+        self.addAction('Set range as default', lambda *x: self.sigRangeAsDefault.emit())
+        self.sigma_factor_menu = self.addMenu('Set sigma factor')
+        action = QWidgetAction(self)
+
+        action.setDefaultWidget(self.slider)
+        self.sigma_factor_menu.addAction(action)
 
 
 class CustomImageViewer(GraphicsLayoutWidget):
@@ -11,15 +34,18 @@ class CustomImageViewer(GraphicsLayoutWidget):
     def view_box(self):
         return self.image_plot.vb
 
-    def __init__(self, parent=None, **kwargs):
+    def __init__(self, parent=None, *, hist_range: tuple = None, sigma_factor: float = 3, **kwargs):
         setConfigOptions(imageAxisOrder='row-major')
         super(CustomImageViewer, self).__init__(parent)
         self._scale = (1., 1.)
         self._center = (0, 0)
 
-        self.__init_ui(**kwargs)
+        self._hist_range = hist_range
+        self._sigma_factor = sigma_factor
 
-    def __init_ui(self, **kwargs):
+        self._init_ui(**kwargs)
+
+    def _init_ui(self, **kwargs):
         self.setWindowTitle('Image Viewer')
         self.image_plot = self.addPlot(**kwargs)
         self.image_plot.vb.setAspectLocked()
@@ -30,15 +56,21 @@ class CustomImageViewer(GraphicsLayoutWidget):
         self.hist = HistogramLUTItem()
         self.hist.setImageItem(self.image_item)
         self.addItem(self.hist)
+        self.hist.vb.menu = CustomViewBoxMenu(self.hist.vb)
+        self.hist.vb.menu.sigSigmaChanged.connect(self.set_sigma_factor)
+        self.hist.vb.menu.sigRangeAsDefault.connect(self.set_limit_as_default)
 
-    def set_data(self, data, auto: float = 3, reset_axes: bool = False):
+    def set_data(self, data, *, reset_axes: bool = False):
         if data is None:
             return
         self.image_item.setImage(data)
-        self.set_levels(auto)
+        self.set_levels()
         if reset_axes:
             self.image_item.resetTransform()
         self.set_default_range()
+
+    def hist_params(self) -> dict:
+        return dict(sigma_factor=self._sigma_factor, hist_range=self._hist_range)
 
     def clear(self):
         self.image_item.clear()
@@ -53,17 +85,28 @@ class CustomImageViewer(GraphicsLayoutWidget):
     def set_auto_range(self):
         self.image_plot.autoRange()
 
-    def set_levels(self, auto: float = 3):
+    def set_levels(self):
         img = self.image_item.image
         if img is None:
             return
 
-        if auto and auto > 0:
-            m, s = img.mean(), img.std() * auto
+        if self._sigma_factor and self._sigma_factor > 0:
+            m, s = img.flatten().mean(), img.flatten().std() * self._sigma_factor
             self.hist.setLevels(max(m - s, img.min()), min(m + s, img.max()))
+        elif self._hist_range:
+            self.hist.setLevels(*self._hist_range)
         else:
             self.hist.setLevels(self.image_item.image.min(),
                                 self.image_item.image.max())
+
+    def set_sigma_factor(self, sigma_factor: float):
+        self._sigma_factor = sigma_factor
+        self.set_levels()
+
+    def set_limit_as_default(self):
+        self._hist_range = self.hist.getLevels()
+        self._sigma_factor = None
+        self.set_levels()
 
     def get_levels(self):
         return self.hist.getLevels()
