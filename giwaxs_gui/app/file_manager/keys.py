@@ -115,6 +115,31 @@ class FolderKey(AbstractKey):
         except ValueError:
             return
 
+    def image_by_key(self, idx: int):
+        try:
+            return self._image_children[idx]
+        except IndexError:
+            return
+
+    def get_next_image(self, key: 'ImageKey') -> 'ImageKey' or None:
+        if not self._image_children:
+            return
+        idx = key.idx
+        if idx is None:
+            idx = key.idx = self.image_idx(key)
+            if idx is None:
+                return
+        if idx + 1 < len(self._image_children):
+            return self._image_children[idx + 1]
+
+    def remove_image(self, key: 'ImageKey'):
+        idx = self.image_idx(key)
+        if idx is None:
+            return
+        self._image_children.remove(key)
+        for i in range(idx, len(self._image_children)):
+            self._image_children[i].idx = i
+
     def __contains__(self, item):
         if not (isinstance(item, AbstractKey)):
             return False
@@ -127,6 +152,10 @@ class FolderKey(AbstractKey):
 
 
 class ImageKey(AbstractKey):
+    def __init__(self, parent=None, idx: int = None, **kwargs):
+        super().__init__(parent=parent, **kwargs)
+        self.idx = idx
+
     @abstractmethod
     def get_image(self):
         pass
@@ -138,9 +167,9 @@ class ImageKey(AbstractKey):
 
 
 class PathKey(AbstractKey):
-    def __init__(self, parent, *, path: Path):
+    def __init__(self, parent, *, path: Path, **kwargs):
         self._path = path
-        super().__init__(parent)
+        super().__init__(parent, **kwargs)
 
     @property
     def path(self):
@@ -159,10 +188,13 @@ class PathKey(AbstractKey):
         else:
             return False
 
+    def __repr__(self):
+        return self.name
+
 
 class H5Key(AbstractKey):
-    def __init__(self, parent, *, h5path: Path, h5key: str = '', is_project: bool = None):
-        super().__init__(parent)
+    def __init__(self, parent, *, h5path: Path, h5key: str = '', is_project: bool = None, **kwargs):
+        super().__init__(parent, **kwargs)
         self._h5path: Path = h5path
         self._h5key: str = h5key
         self._is_project = is_project
@@ -195,6 +227,9 @@ class H5Key(AbstractKey):
         else:
             return False
 
+    def __repr__(self):
+        return self.name
+
 
 class FolderH5Key(FolderKey, H5Key):
     def __init__(self, parent: FolderKey, *,
@@ -213,7 +248,8 @@ class FolderH5Key(FolderKey, H5Key):
                         if self.is_project and IMAGE_PROJECT_KEY in item.attrs.keys():
                             self._image_children.append(
                                 ImageH5Key(self, h5path=self._h5path,
-                                           h5key='/'.join((self._h5key, key)), is_project=True))
+                                           h5key='/'.join((self._h5key, key)), is_project=True,
+                                           idx=len(self._image_children)))
                         else:
                             self._folder_children.append(
                                 FolderH5Key(self, h5path=self._h5path,
@@ -223,7 +259,7 @@ class FolderH5Key(FolderKey, H5Key):
                         self._image_children.append(
                             ImageH5Key(self, h5path=self._h5path,
                                        h5key='/'.join((self._h5key, key)),
-                                       is_project=False))
+                                       is_project=False, idx=len(self._image_children)))
         except Exception as err:
             raise InvalidKey(err)
 
@@ -256,7 +292,7 @@ class FolderPathKey(FolderKey, PathKey):
                 elif p.suffix in H5_FORMAT:
                     self._folder_children.append(FolderH5Key(self, h5path=p))
                 elif p.suffix in AVAILABLE_IMAGE_FORMATS:
-                    self._image_children.append(ImagePathKey(self, path=p))
+                    self._image_children.append(ImagePathKey(self, path=p, idx=len(self._image_children)))
         except Exception as err:
             raise InvalidKey(err)
 
@@ -266,8 +302,8 @@ class FolderPathKey(FolderKey, PathKey):
 
 class ImagePathKey(ImageKey, PathKey):
     def __init__(self, parent: FolderPathKey, *,
-                 path: Path):
-        super().__init__(parent, path=path)
+                 path: Path, idx: int = None):
+        super().__init__(parent, path=path, idx=idx)
 
     def get_image(self):
         try:
@@ -282,9 +318,9 @@ class ImagePathKey(ImageKey, PathKey):
 
 class ImageH5Key(ImageKey, H5Key):
     def __init__(self, parent: FolderKey, *,
-                 h5path: Path, h5key: str, is_project: bool = False):
+                 h5path: Path, h5key: str, is_project: bool = False, idx: int = None):
         super().__init__(
-            parent, h5path=h5path, h5key=h5key, is_project=is_project)
+            parent, h5path=h5path, h5key=h5key, is_project=is_project, idx=idx)
 
     def get_image(self):
         try:
