@@ -9,17 +9,15 @@ from .polar_image_viewer import PolarImageViewer
 from .file_viewer.viewer import FileViewer
 from .profiles.radial_profile_widget import RadialProfileWidget
 from .profiles.angular_profile_widget import AngularProfileWidget
-from .fit_widget import FitWidget
-
-# from .file_manager import FileWidget
+from .fitting import FitWidget
 
 
 logger = logging.getLogger(__name__)
 
 
 class AppDockArea(DockArea):
-    def __init__(self):
-        DockArea.__init__(self)
+    def __init__(self, parent=None):
+        DockArea.__init__(self, parent=parent)
         self._status_dict = defaultdict(lambda: True)
         self.app = App()
 
@@ -42,12 +40,12 @@ class AppDockArea(DockArea):
         self.app.image_holder.sigFitOpen.connect(self._open_fit_widget)
 
     def _open_fit_widget(self, g_fit):
-        self._fit_widget = FitWidget(g_fit)
-        self._fit_widget.sigFitApplied.connect(self._apply_fit)
+        FitWidget(g_fit, parent=self.parent())
 
-    def _apply_fit(self, g_fit):
-        self._fit_widget = None
-        self.app.image_holder.apply_fit(g_fit)
+    # def _apply_fit(self, g_fit):
+    #     self._fit_widget.deleteLater()
+    #     self._fit_widget = None
+    #     # self.app.image_holder.apply_fit(g_fit)
 
     def _apply_default_view(self):
         self.show_hide_docks('polar')
