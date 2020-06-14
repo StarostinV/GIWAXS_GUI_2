@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import List
 
 from PyQt5.QtWidgets import (QGraphicsColorizeEffect, QLineEdit,
                              QWidget, QApplication, QMessageBox,
@@ -11,7 +10,6 @@ from PyQt5.QtGui import QColor, QIcon
 from ..app.file_manager import GLOB_IMAGE_FORMATS
 
 ICON_PATH: Path = Path(__file__).parents[1] / 'static' / 'icons'
-CSS_PATH: Path = Path(__file__).parents[1] / 'static' / 'css'
 
 logger = logging.getLogger(__name__)
 
@@ -66,27 +64,6 @@ class Icon(QIcon):
             name += '.png'
         name = str(ICON_PATH / name)
         QIcon.__init__(self, name)
-
-
-class CSS(object):
-    default = 'Dark Grey'
-
-    @staticmethod
-    def get_css(name: str) -> str or None:
-        if '.css' not in name:
-            name += '.css'
-        try:
-            with open(str((CSS_PATH / name).resolve()), 'r') as f:
-                return f.read()
-        except FileNotFoundError:
-            return
-        except Exception as err:
-            logger.exception(err)
-            return
-
-    @staticmethod
-    def list_css() -> List[str]:
-        return [p.stem for p in CSS_PATH.glob('*.css')]
 
 
 def center_widget(widget):
