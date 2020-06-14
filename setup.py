@@ -10,7 +10,7 @@ def read(filename: str):
 setup(
         name='giwaxs_gui',
         packages=find_packages(),
-        version='0.1.0',
+        version='0.1.1',
         author='Vladimir Starostin',
         author_email='vladimir.starostin@uni-tuebingen.de',
         description='A GUI program for GIWAXS images analysis',
