@@ -12,6 +12,7 @@ from .keys import (FolderKey, FolderH5Key, FolderPathKey,
 
 from .project_structure import ProjectStructure, ProjectRootKey
 from .read_images import _ReadImage, _ReadNpy
+from .read_polar_images import _ReadPolarImage
 from .read_geometry import _ReadGeometry
 from .read_roi_data import _ReadRoiData
 from .read_meta_roi import _ReadMetaData
@@ -80,6 +81,8 @@ class FileManager(QObject):
         self._project_structure.root.remove_key(key)
         if isinstance(key, ImageKey):
             self._delete_image_data(key)
+            if key.parent:
+                key.parent.remove_image(key)
         else:
             self._delete_folder(key)
         if self._current_key in key:
@@ -116,7 +119,7 @@ class FileManager(QObject):
 
         self.images: _ReadImage = _ReadImage(self._project_structure)
         self.geometries: _ReadGeometry = _ReadGeometry(self._project_structure)
-        self.polar_images: _ReadNpy = _ReadNpy(self._project_structure)
+        self.polar_images: _ReadPolarImage = _ReadPolarImage(self._project_structure)
         self.rois_data: _ReadRoiData = _ReadRoiData(self._project_structure)
         self.fits: _ReadFits = _ReadFits(self._project_structure)
         self.project_name = self._project_folder.name
