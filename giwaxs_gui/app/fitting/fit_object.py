@@ -1,15 +1,16 @@
 from typing import Dict
 import numpy as np
+from copy import deepcopy
 
 from ..file_manager import ImageKey
 from .background import *
 from .functions import *
 from .fit import Fit
 from .utils import _get_dummy_bounds, Roi, RoiTypes
+from .range_strategy import RangeStrategy, RangeStrategyType
 
 
 class FitObject(object):
-    PADDING: float = 2
     MINIMAL_NUM: int = 5
 
     def __init__(self, image_key: ImageKey, polar_image: np.ndarray, r_axis: np.ndarray, phi_axis: np.ndarray):
@@ -31,22 +32,16 @@ class FitObject(object):
 
         self.default_fitting: FittingFunction.__class__ = Gaussian
         self.default_background: Background.__class__ = LinearBackground
-
-    def _aspect_ratio(self):
-        p, r = self.phi_axis, self.r_axis
-        return (p.max() - p.min()) * p.size / (r.max() - r.min()) / r.size
-
-    def _bounds(self):
-        p = self.phi_axis
-        return (p.max() + p.min()) / 2, (p.max() - p.min())
+        self.default_range_strategy: RangeStrategy = RangeStrategy()
 
     def add_fit(self, fit: Fit):
         self.fits[fit.roi.key] = fit
-        self.update_fit_data(fit, False)
+        update_r_range = fit.range_strategy.strategy_type == RangeStrategyType.adjust
+        self.update_fit_data(fit, update_r_range)
         fit.update_fit()
 
     def new_fit(self, roi: Roi):
-        r1, r2 = self._get_r_range(roi)
+        r1, r2 = self._get_r_range(roi, self.default_range_strategy.range_factor)
 
         x1, x2 = self._get_r_coords(r1), self._get_r_coords(r2)
         x, y = self._get_x_y(roi, x1, x2)
@@ -67,7 +62,7 @@ class FitObject(object):
                   lower_bounds=lower_bounds, upper_bounds=upper_bounds,
                   fitted_params=[], fit_errors=[], fitting_curve=None,
                   fitting_function=function, background=background,
-                  background_curve=background_curve)
+                  background_curve=background_curve, range_strategy=deepcopy(self.default_range_strategy))
 
         self.fits[roi.key] = fit
 
@@ -75,21 +70,58 @@ class FitObject(object):
 
     def update_fit_data(self, fit: Fit, update_r_range: bool = True):
         if update_r_range:
-            fit.r_range = r1, r2 = self._get_r_range(fit.roi)
+            fit.r_range = r1, r2 = self._get_r_range(fit.roi, fit.range_strategy.range_factor)
         else:
             r1, r2 = fit.r_range
         x1, x2 = self._get_r_coords(r1), self._get_r_coords(r2)
         fit.x, fit.y = self._get_x_y(fit.roi, x1, x2)
-
-    def _get_r_range(self, roi: Roi):
-        r1, r2 = roi.radius - roi.width * self.PADDING, roi.radius + roi.width * self.PADDING
-        return min(r1, roi.radius - self.min_range / 2), max(r2, roi.radius + self.min_range / 2)
 
     def remove_fit(self, fit: Fit):
         try:
             del self.fits[fit.roi.key]
         except KeyError:
             return
+
+    def set_range_strategy(self, range_strategy: RangeStrategy, fit: Fit = None, update: bool = True):
+        if fit:
+            range_strategy.is_default = False
+            fit.range_strategy = range_strategy
+        else:
+            self.default_range_strategy = range_strategy
+            for fit in self.fits.values():
+                if fit.range_strategy.is_default:
+                    fit.range_strategy = deepcopy(range_strategy)
+                    if update:
+                        self.update_fit_data(fit)
+                        fit.update_fit()
+
+    def set_background(self, background_type: BackgroundType, fit: Fit = None, update: bool = True):
+        background = BACKGROUNDS[background_type]
+        if fit and fit.background.TYPE != background_type:
+            fit.set_background(background())
+            fit.background.is_default = False
+        elif self.default_background.TYPE != background_type:
+            self.default_background = background
+            for fit in self.fits.values():
+                if fit.background.is_default:
+                    fit.set_background(background(), update)
+
+    def set_function(self, fitting_type: FittingType, fit: Fit = None, update: bool = True):
+        fitting_function = FITTING_FUNCTIONS[fitting_type]
+        if fit and fit.fitting_function.TYPE != fitting_function:
+            fit.set_function(fitting_function())
+            fit.fitting_function.is_default = False
+        elif self.default_fitting.TYPE != fitting_type:
+            self.default_fitting = fitting_function
+            for fit in self.fits.values():
+                if fit.fitting_function.is_default:
+                    fit.set_function(fitting_function(), update)
+
+    # Private methods for calculating geometric properties
+
+    def _get_r_range(self, roi: Roi, factor: float):
+        r1, r2 = roi.radius - roi.width * (factor + 1), roi.radius + roi.width * (factor + 1)
+        return min(r1, roi.radius - self.min_range / 2), max(r2, roi.radius + self.min_range / 2)
 
     def _get_x_y(self, roi: Roi, x1: int, x2: int):
         x = self.r_axis[x1:x2]
@@ -108,3 +140,11 @@ class FitObject(object):
 
     def _get_p_coords(self, p):
         return int((p - self.phi_axis.min()) / self.phi_delta)
+
+    def _aspect_ratio(self):
+        p, r = self.phi_axis, self.r_axis
+        return (p.max() - p.min()) * p.size / (r.max() - r.min()) / r.size
+
+    def _bounds(self):
+        p = self.phi_axis
+        return (p.max() + p.min()) / 2, (p.max() - p.min())

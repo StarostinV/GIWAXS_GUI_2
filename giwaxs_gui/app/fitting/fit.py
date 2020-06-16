@@ -9,6 +9,7 @@ from scipy.optimize import curve_fit
 from .functions import FittingType, FittingFunction, FITTING_FUNCTIONS
 from .background import BackgroundType, BACKGROUNDS, Background
 from .utils import Roi
+from .range_strategy import RangeStrategyType, RangeStrategy
 
 
 @dataclass
@@ -27,11 +28,11 @@ class Fit:
     fitted_params: list
     fit_errors: list
     fitting_curve: np.ndarray
+    background_curve: np.ndarray
 
     fitting_function: FittingFunction
     background: Background
-
-    background_curve: np.ndarray = None
+    range_strategy: RangeStrategy
 
     @property
     def param_names(self):
@@ -59,20 +60,14 @@ class Fit:
         if self.fitted_params:
             self.fitting_curve = self.fitting_function(self.x, self.background, *self.fitted_params)
 
-    def set_background(self, background_type: BackgroundType, is_default: bool = True):
-        if background_type != self.background.TYPE:
-            self.background = BACKGROUNDS[background_type]()
-            if not is_default:
-                self.background.is_default = False
-
+    def set_background(self, background: Background, update: bool = True):
+        self.background = background
+        if update:
             self.update_fit()
 
-    def set_function(self, function_type: FittingType, is_default: bool = True):
-        if function_type != self.fitting_function.TYPE:
-            self.fitting_function = FITTING_FUNCTIONS[function_type]()
-            if not is_default:
-                self.fitting_function.is_default = False
-
+    def set_function(self, fitting_function: FittingFunction, update: bool = True):
+        self.fitting_function = fitting_function
+        if update:
             self.update_fit()
 
     def do_fit(self) -> None:
@@ -88,6 +83,7 @@ class Fit:
             self.init_params = self.fitted_params
             self.fit_errors = perr.tolist()
             self.fitting_curve = func(self.x, *popt)
+            self.background_curve = self.background(self.x, *popt)
             self.init_curve = self.fitting_curve
             self.roi.fitted_parameters = dict(zip(self.param_names, self.fitted_params))
             self.roi.fitted_parameters['fitting_function'] = self.fitting_function.TYPE
