@@ -105,9 +105,9 @@ class DoubleSlider(QSlider):
 class LabeledSlider(QWidget):
     valueChanged = pyqtSignal(float)
 
-    _EditMaximumWidth = 80
-    _Height = 40
-    _padding = 50
+    _HEIGHT = 50
+    _WIDTH_MIN = 200
+    _WIDTH_MAX = 300
 
     def __init__(self, name: str, bounds: tuple = (0, 1),
                  value: float = 0,
@@ -130,10 +130,20 @@ class LabeledSlider(QWidget):
         layout.addWidget(self.label)
         layout.addWidget(self.slider)
         layout.addWidget(self.line_edit)
-        self.setFixedHeight(self._Height)
-        min_width = self.fontMetrics().width(
-            ' = '.join([self.name, self.get_str_value()])) + self._padding
-        self.setMinimumWidth(min_width)
+
+        self.setSizePolicy(
+            QSizePolicy.MinimumExpanding,
+            QSizePolicy.Fixed
+        )
+
+        self.setFixedHeight(self._HEIGHT)
+        self.edit_width = self.fontMetrics().width(
+            ' '.join([' '] * (self._decimals + 4)))
+        self.line_edit.setMaximumWidth(self.edit_width)
+        self.setMaximumWidth(self._WIDTH_MAX)
+
+    def sizeHint(self) -> QSize:
+        return QSize(self._WIDTH_MIN, self._HEIGHT)
 
     @property
     def value(self) -> float:
@@ -415,8 +425,8 @@ class ParametersSlider(QWidget):
 
         # self.setMouseTracking(True)
         self.setSizePolicy(
-            QSizePolicy.MinimumExpanding,
-            QSizePolicy.Maximum
+            QSizePolicy.Expanding,
+            QSizePolicy.Minimum
         )
 
         self._pressed: int = 0
@@ -451,7 +461,7 @@ class ParametersSlider(QWidget):
             raise ValueError(f'Wrong order: {x1}, {x2}, {x3}')
 
     def sizeHint(self):
-        return QSize(50, 100)
+        return QSize(300, self._rect_height)
 
     def mousePressEvent(self, ev):
         if ev.button() == Qt.RightButton:

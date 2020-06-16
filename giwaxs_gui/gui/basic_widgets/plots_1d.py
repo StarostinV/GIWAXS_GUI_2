@@ -89,8 +89,7 @@ class Smooth1DPlot(QMainWindow):
     def __init_sigma_slider(self, toolbar):
         sigma_slider = LabeledSlider('𝞼', (0, 10), self.profile.sigma,
                                      decimals=2)
-        sigma_slider.setMaximumWidth(self._MaximumSliderWidth)
-        sigma_slider.setMaximumHeight(self._MaximumSliderHeight)
+
         sigma_slider.valueChanged.connect(self.update_sigma)
 
         self.sigma_slider = sigma_slider
@@ -98,7 +97,7 @@ class Smooth1DPlot(QMainWindow):
         layout = QHBoxLayout()
         frame.setLayout(layout)
         frame.setGeometry(0, 0, self._MaximumSliderWidth, toolbar.height() * 0.9)
-        layout.addWidget(sigma_slider, alignment=Qt.AlignHCenter)
+        layout.addWidget(sigma_slider, alignment=Qt.AlignLeft)
         toolbar.addWidget(frame)
 
     def set_sigma(self, value: float):
