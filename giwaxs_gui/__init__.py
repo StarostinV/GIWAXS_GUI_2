@@ -8,7 +8,7 @@ from .app import App
 from .gui import GIWAXSMainWindow, UncaughtHook, DebugWindow
 
 
-def run(logging_level: int = logging.DEBUG):
+def run(logging_level: int = logging.ERROR):
     loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
     for logger in loggers:
         logger.setLevel(logging_level)
