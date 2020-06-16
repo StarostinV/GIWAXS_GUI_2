@@ -2,6 +2,7 @@ import logging
 from enum import Enum
 from typing import Dict, List, Tuple
 from time import sleep
+from copy import deepcopy
 
 from PyQt5.QtCore import (QObject, pyqtSlot, pyqtSignal,
                           QCoreApplication, Qt, QThread)
@@ -11,10 +12,9 @@ from PyQt5.QtGui import QColor, QPen
 
 from pyqtgraph import GraphicsLayoutWidget, FillBetweenItem, InfiniteLine
 
-from ...app import App, Roi
+from ...app import App, Roi, RoiData
 from ...app.file_manager import ImageKey, FolderKey
 from ...app.fitting import FitObject, Fit
-from ..tools import center_widget, Icon
 
 logger = logging.getLogger(__name__)
 
@@ -31,24 +31,56 @@ class MultiFit(QObject):
     sigPaused = pyqtSignal()
     # sigError = pyqtSignal(object)
     sigFinished = pyqtSignal()
+    sigSaved = pyqtSignal(int)
+    sigSavedFinished = pyqtSignal()
 
     log = logging.getLogger(__name__)
 
-    def __init__(self, parent=None):
+    def __init__(self, fm_multi_fit, parent=None):
         super().__init__(parent=parent)
-        self.sleep_time: float = 0.
+        self.sleep_time: float = 0.002
         self._paused: bool = False
         self._stopped: bool = False
+        self.fm_multi_fit = fm_multi_fit
+
+    @pyqtSlot(list, name='runSave')
+    def run_save(self, image_key_list: list):
+        rois_data_fm = App().fm.rois_data
+
+        for i, image_key in enumerate(image_key_list):
+
+            fit_obj = self.fm_multi_fit[image_key]
+            if not fit_obj:
+                self.sigSaved.emit(i)
+                continue
+
+            rois = [fit.roi for fit in fit_obj.fits.values() if fit.fitted_params]
+
+            if rois:
+                roi_data = rois_data_fm[image_key] or RoiData()
+                roi_data.apply_fit(rois)
+                rois_data_fm[image_key] = roi_data
+
+            self.sigSaved.emit(i)
+
+            if self.sleep_time:
+                sleep(self.sleep_time)
+
+        self.sigSavedFinished.emit()
 
     @pyqtSlot(object, name='runFit')
-    def run(self, fit_obj: FitObject):
+    def run_fit(self, fit_obj: FitObject):
         self._paused = False
+        fit_obj = deepcopy(fit_obj)
 
         while fit_obj and fit_obj.fits and not self._paused:
+
             self.log.info(f'Fitting image {fit_obj.image_key}')
             for fit in fit_obj.fits.values():
+                if fit.fitted_params:
+                    continue
                 try:
-                    fit_obj.do_fit(fit)
+                    fit.do_fit()
                 except Exception as err:
                     self.log.exception(err)
 
@@ -66,8 +98,17 @@ class MultiFit(QObject):
             if self._paused:
                 break
 
-            new_fit_obj = get_new_fit(fit_obj, add_fits=True)
-            self.sigFit.emit(fit_obj)
+            fit_obj.is_fitted = True
+            new_key = fit_obj.image_key.parent.get_next_image(fit_obj.image_key)
+
+            if not new_key:
+                self.sigFit.emit(fit_obj)
+                break
+
+            saved_fit = self.fm_multi_fit[new_key]
+            self.sigFit.emit(deepcopy(fit_obj))
+            new_fit_obj = get_new_fit(fit_obj, saved_fit=saved_fit,
+                                      add_fits=True, new_image_key=new_key)
             fit_obj = new_fit_obj
 
         if self._stopped:
@@ -76,6 +117,10 @@ class MultiFit(QObject):
             self.sigPaused.emit()
         else:
             self.sigFinished.emit()
+
+    @property
+    def is_paused(self):
+        return self._paused
 
     @pyqtSlot(name='pauseFit')
     def pause(self):
@@ -89,31 +134,35 @@ class MultiFit(QObject):
         self._stopped = True
 
 
-def get_new_fit(fit_object: FitObject,
+def get_new_fit(previous_fit: FitObject, saved_fit: FitObject = None,
                 add_fits: bool = False, new_image_key: ImageKey = None):
-    folder_key: FolderKey = fit_object.image_key.parent
-    if not folder_key:
-        logger.debug('empty folder key')
-        return
 
-    if not new_image_key:
-        new_image_key: ImageKey = folder_key.get_next_image(fit_object.image_key)
-    if not new_image_key:
-        logger.debug('empty next image_key')
-        return
-    image, polar_image, geometry = App().image_holder.get_data_by_key(new_image_key, save=True)
-    if polar_image is None:
-        logger.debug('empty polar_image')
-        return
-    new_fit_object: FitObject = fit_object.__class__(
-        new_image_key, polar_image, geometry.r_axis, geometry.phi_axis)
+    if not saved_fit:
+        if not new_image_key:
+            folder_key: FolderKey = previous_fit.image_key.parent
+            if not folder_key:
+                logger.debug('empty folder key')
+                return
+            new_image_key: ImageKey = folder_key.get_next_image(previous_fit.image_key)
+        if not new_image_key:
+            logger.debug('empty next image_key')
+            return
+
+        image, polar_image, geometry = App().image_holder.get_data_by_key(new_image_key, save=True)
+
+        if polar_image is None:
+            logger.debug('empty polar_image')
+            return
+
+        saved_fit: FitObject = FitObject(new_image_key, polar_image, geometry.r_axis, geometry.phi_axis)
 
     if add_fits:
-        for fit in fit_object.fits.values():
-            if fit.fitted_params:
-                new_fit_object.add(fit.roi)
+        for fit in previous_fit.fits.values():
+            if fit.fitted_params and fit.roi.key not in saved_fit.fits.keys():
+                saved_fit.add_fit(fit)
+                fit.fitted_params = None
 
-    return new_fit_object
+    return saved_fit
 
 
 class MultiFitWindow(QWidget):
@@ -122,6 +171,7 @@ class MultiFitWindow(QWidget):
     sigRunFit = pyqtSignal(object)
     sigClosed = pyqtSignal()
     sigFitUpdated = pyqtSignal(object)
+    sigRunSave = pyqtSignal(list)
 
     log = logging.getLogger(__name__)
 
@@ -130,24 +180,18 @@ class MultiFitWindow(QWidget):
         self.current_fit: FitObject = fit_object
         self.fm = App().fm.fits.get_multi_fit()
 
-        self.setGeometry(0, 0, 1200, 700)
-        center_widget(self)
-        self.setWindowTitle('Fitting parameters')
-        self.setWindowIcon(Icon('fit'))
-        self.setAttribute(Qt.WA_DeleteOnClose, True)
-        # self.setWindowFlag(Qt.Window, True)
-
         self.fit_thread = QThread()
-        self.multi_fit = MultiFit()
+        self.multi_fit = MultiFit(self.fm)
         self.multi_fit.moveToThread(self.fit_thread)
 
         self.multi_fit.sigPaused.connect(self.on_paused)
         self.multi_fit.sigFinished.connect(self.on_finished)
         self.multi_fit.sigFit.connect(self._update_fit)
 
-        self.sigRunFit.connect(self.multi_fit.run)
+        self.sigRunFit.connect(self.multi_fit.run_fit)
         self.sigPauseFit.connect(self.multi_fit.pause)
         self.sigDeleteFit.connect(self.multi_fit.stop)
+        self.sigRunSave.connect(self.multi_fit.run_save)
 
         self.fit_thread.finished.connect(self.multi_fit.deleteLater)
         self.fit_thread.finished.connect(self.fit_thread.deleteLater)
@@ -169,6 +213,7 @@ class MultiFitWindow(QWidget):
         self.plot_params = MultiFitPlot(self)
         self.progress_widget = ProgressWidget(self.current_fit.image_key, self)
         self.control_button = QPushButton(ButtonStates.start.value)
+        layout.addWidget(QLabel('Image series'))
         layout.addWidget(self.plot_params)
         layout.addWidget(self.progress_widget)
         layout.addWidget(self.control_button)
@@ -199,7 +244,6 @@ class MultiFitWindow(QWidget):
 
         if (self.control_button.text() == ButtonStates.finished.value and
                 key.idx + 1 < key.parent.images_num):
-
             self.control_button.setText(ButtonStates.resume.value)
 
         self.sigFitUpdated.emit(self.current_fit)
@@ -215,6 +259,14 @@ class MultiFitWindow(QWidget):
     def delete_roi(self, roi: Roi):
         if self.current_fit:
             self.plot_params.delete_roi(roi, self.current_fit.image_key.idx)
+
+    def save_fits(self, image_keys: list):
+        if not self.multi_fit.is_paused:
+            return
+        widget = SaveProgressWidget(len(image_keys), parent=self)
+        self.multi_fit.sigSaved.connect(widget.set_progress)
+        self.multi_fit.sigSavedFinished.connect(widget.finished)
+        self.sigRunSave.emit(image_keys)
 
     @pyqtSlot(name='fitPaused')
     def on_paused(self):
@@ -243,6 +295,12 @@ class MultiFitWindow(QWidget):
         self.progress_widget.change_image(fit_object.image_key)
         self.sigFitUpdated.emit(fit_object)
 
+    def select_fit(self, key: int):
+        self.plot_params.select_fit(key)
+
+    def unselect_fit(self, key: int):
+        self.plot_params.unselect_fit(key)
+
     def close_widget(self) -> None:
         self.log.debug(f'Closing multi fit object...')
         self.fm.delete()
@@ -257,6 +315,9 @@ class MultiFitWindow(QWidget):
 
 class MultiFitPlot(GraphicsLayoutWidget):
     log = logging.getLogger(__name__)
+
+    INACTIVE_COLOR = [63, 63, 63, 190]
+    ACTIVE_COLOR = [50, 250, 50, 240]
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -360,6 +421,18 @@ class MultiFitPlot(GraphicsLayoutWidget):
 
         self._update_fill_between(plots)
 
+    def select_fit(self, key: int):
+        try:
+            self.plots[key]['fill'].setBrush(self.ACTIVE_COLOR)
+        except KeyError:
+            pass
+
+    def unselect_fit(self, key: int):
+        try:
+            self.plots[key]['fill'].setBrush(self.INACTIVE_COLOR)
+        except KeyError:
+            pass
+
     def _init_plot(self, key):
         self.plots[key] = {}
         self.plots[key]['upper'] = self.plot_item.plot(pen=self.get_pen(color='blue'))
@@ -371,7 +444,7 @@ class MultiFitPlot(GraphicsLayoutWidget):
     def _update_fill_between(self, plots):
         if 'fill' not in plots:
             plots['fill'] = FillBetweenItem(plots['upper'], plots['lower'],
-                                            brush=[63, 63, 63, 191])
+                                            brush=self.INACTIVE_COLOR)
             self.plot_item.addItem(plots['fill'])
         else:
             plots['fill'].setCurves(plots['upper'], plots['lower'])
@@ -441,3 +514,37 @@ class ProgressWidget(QWidget):
         self.progress_bar.setValue(image_key.idx)
         self.label.setText(image_key.name)
         self.slider.setValue(image_key.idx)
+
+
+class SaveProgressWidget(QWidget):
+    def __init__(self, num: int, parent=None):
+        super().__init__(parent)
+        self.setWindowFlag(Qt.Window)
+        self.setWindowFlag(Qt.FramelessWindowHint)
+        self.setWindowModality(Qt.ApplicationModal)
+        self.setAttribute(Qt.WA_DeleteOnClose, True)
+
+        self._init_ui(num)
+        self.show()
+
+    def _init_ui(self, num: int):
+        layout = QVBoxLayout(self)
+        self.progress = QProgressBar()
+        self.progress.setMaximum(num)
+        self.close_button = QPushButton('Close')
+        self.close_button.clicked.connect(self.close)
+        self.label = QLabel('Applying fitting ...')
+        layout.addWidget(self.label)
+        layout.addWidget(self.progress)
+        layout.addWidget(self.close_button)
+        self.close_button.hide()
+
+    @pyqtSlot(int, name='setProgress')
+    def set_progress(self, value: int):
+        self.progress.setValue(value)
+
+    @pyqtSlot(name='finished')
+    def finished(self):
+        self.label.setText('Fits are saved!')
+        self.progress.setValue(self.progress.maximum())
+        self.close_button.show()
