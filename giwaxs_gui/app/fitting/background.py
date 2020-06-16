@@ -82,7 +82,7 @@ class LinearBackground(Background):
 class BaselineCorrection(Background):
     PARAM_NAMES = ()
     NUM = 0
-    TYPE = BackgroundType.auto
+    # TYPE = BackgroundType.auto
 
     def __init__(self, y: np.ndarray, get_r: Callable, smoothness: float = 1, asymmetry: float = 1):
         self.y = y
