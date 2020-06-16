@@ -16,6 +16,8 @@ from ...app import App, Roi, RoiData
 from ...app.file_manager import ImageKey, FolderKey
 from ...app.fitting import FitObject, Fit
 
+from ..tools import get_pen
+
 logger = logging.getLogger(__name__)
 
 
@@ -116,6 +118,7 @@ class MultiFit(QObject):
         elif self._paused:
             self.sigPaused.emit()
         else:
+            self._paused = True
             self.sigFinished.emit()
 
     @property
@@ -323,7 +326,7 @@ class MultiFitPlot(GraphicsLayoutWidget):
         super().__init__(parent)
         self.plot_item = self.addPlot()
         self.plot_item.setMenuEnabled(False)
-        self.inf_line = InfiniteLine(0, pen=self.get_pen(color='red', style=Qt.DashLine))
+        self.inf_line = InfiniteLine(0, pen=get_pen(color='red', style=Qt.DashLine))
         self.plot_item.addItem(self.inf_line)
         self.plots = {}
         self.x_axis: Dict[int, List[int]] = {}
@@ -435,11 +438,11 @@ class MultiFitPlot(GraphicsLayoutWidget):
 
     def _init_plot(self, key):
         self.plots[key] = {}
-        self.plots[key]['upper'] = self.plot_item.plot(pen=self.get_pen(color='blue'))
+        self.plots[key]['upper'] = self.plot_item.plot(pen=get_pen(color='blue'))
         self.plots[key]['middle'] = self.plot_item.plot(
-            pen=self.get_pen(style=Qt.DashLine)
+            pen=get_pen(style=Qt.DashLine)
         )
-        self.plots[key]['lower'] = self.plot_item.plot(pen=self.get_pen(color='blue'))
+        self.plots[key]['lower'] = self.plot_item.plot(pen=get_pen(color='blue'))
 
     def _update_fill_between(self, plots):
         if 'fill' not in plots:
@@ -453,18 +456,6 @@ class MultiFitPlot(GraphicsLayoutWidget):
     def change_image(self, key: ImageKey):
         self.inf_line.setValue(key.idx)
         self.plot_item.autoRange()
-
-    @staticmethod
-    def get_pen(width: int = 1, color: str or QColor = 'white', style=Qt.SolidLine):
-        if isinstance(color, str):
-            color = QColor(color)
-        pen = QPen(color)
-        pen.setStyle(style)
-        pen.setWidth(width)
-        pen.setCapStyle(Qt.RoundCap)
-        pen.setJoinStyle(Qt.RoundJoin)
-        pen.setCosmetic(True)
-        return pen
 
 
 class ProgressWidget(QWidget):

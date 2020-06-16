@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (QGraphicsColorizeEffect, QLineEdit,
                              QWidget, QApplication, QMessageBox,
                              QFileDialog)
 from PyQt5.QtCore import QPropertyAnimation, Qt
-from PyQt5.QtGui import QColor, QIcon
+from PyQt5.QtGui import QColor, QIcon, QPen
 
 from ..app.file_manager import GLOB_IMAGE_FORMATS
 
@@ -43,6 +43,18 @@ def get_folder_filepath(parent, message: str, *, show_files: bool = True) -> Pat
         options=options)
     if folder_path:
         return Path(folder_path)
+
+
+def get_pen(width: int = 1, color: str or QColor = 'white', style=Qt.SolidLine):
+    if isinstance(color, str):
+        color = QColor(color)
+    pen = QPen(color)
+    pen.setStyle(style)
+    pen.setWidth(width)
+    pen.setCapStyle(Qt.RoundCap)
+    pen.setJoinStyle(Qt.RoundJoin)
+    pen.setCosmetic(True)
+    return pen
 
 
 def show_error(err: str, *, error_title: str = 'Internal Error', info_text: str = ''):
