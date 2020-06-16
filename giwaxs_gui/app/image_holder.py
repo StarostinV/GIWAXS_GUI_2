@@ -12,7 +12,7 @@ from .geometry_holder import GeometryHolder
 from .polar_image import (PolarImage, InterpolationParams,
                           INTERPOLATION_ALGORITHMS, INTERPOLATION_ALGORITHMS_INVERSED)
 from .file_manager import FileManager, ImageKey
-from .fitting import FitObject, GaussianFit, GaussianFit2
+from .fitting import FitObject
 
 
 class ImageHolder(QObject):
@@ -172,11 +172,11 @@ class ImageHolder(QObject):
 
     @pyqtSlot(list, name='openFitRois')
     def open_fit_rois(self, rois: List[Roi]):
-        g_fit = GaussianFit2(self._current_key, self.polar_image,
-                            self.geometry.r_axis, self.geometry.phi_axis)
+        fit_object = FitObject(self._current_key, self.polar_image,
+                               self.geometry.r_axis, self.geometry.phi_axis)
         for roi in rois:
-            g_fit.add(roi)
-        self.sigFitOpen.emit(g_fit)
+            fit_object.new_fit(roi)
+        self.sigFitOpen.emit(fit_object)
 
     @pyqtSlot(object, name='applyFit')
     def apply_fit(self, g_fit: FitObject):
