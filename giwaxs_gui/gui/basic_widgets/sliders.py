@@ -436,7 +436,7 @@ class ParametersSlider(QWidget):
             elif new_range:
                 self._min_value, self._max_value = new_range
                 if self._min_value > self._max_value:
-                    raise ValueError('Wrong range.')
+                    raise ValueError(f'Wrong range: {self._min_value} > {self._max_value}')
 
             if x1 < self._min_value or x3 > self._max_value:
                 raise ValueError('Out of range.')
@@ -448,7 +448,7 @@ class ParametersSlider(QWidget):
             self.update()
 
         else:
-            raise ValueError('Wrong order.')
+            raise ValueError(f'Wrong order: {x1}, {x2}, {x3}')
 
     def sizeHint(self):
         return QSize(50, 100)
