@@ -28,8 +28,8 @@ class TrackSignals(QObject):
 class ObjectTracker(QObject):
     def __init__(self, obj: QObject, name: str):
         super().__init__()
-        self.id: str = dt.now().strftime(f'{id(obj)}: %M %S')
         self.name: str = f'{obj.__class__.__name__}: {name}'
+        self.id: str = f'{name}: {id(obj)}, {dt.now().timestamp()}'
         self.obj_ref = weakref.ref(obj)
         self.status: ObjectStatus = ObjectStatus.EXISTS
         self._deleted_by_c: bool = False
