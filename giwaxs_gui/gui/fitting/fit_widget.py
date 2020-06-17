@@ -55,6 +55,7 @@ class FitWidget(QWidget):
         self.setWindowFlag(Qt.Window, True)
         self.setAttribute(Qt.WA_DeleteOnClose, True)
         self.setWindowModality(Qt.WindowModal)
+        self.setAttribute(Qt.WA_MacAlwaysShowToolWindow, True)
 
         self.fit_object: FitObject = fit_object
         self.active_image_key: ImageKey = fit_object.image_key
@@ -89,6 +90,8 @@ class FitWidget(QWidget):
         self.sliders_widget = SlidersWidget(parent=self)
         self.fit_button = QPushButton(FitImageButtonStatus.fit.value)
         self.apply_button = QPushButton('Apply')
+        self.close_button = QPushButton('Close')
+        self.close_button.clicked.connect(self.close)
         self.multi_fit_window: MultiFitWindow = MultiFitWindow(self.fit_object, self)
 
         self.multi_fit_window.sigFitUpdated.connect(self.set_fit)
@@ -124,10 +127,11 @@ class FitWidget(QWidget):
         q_splitter_h1.addWidget(self.radial_viewer)
 
         s_layout = QGridLayout(single_image_widget)
-        s_layout.addWidget(QLabel('Current Image'), 0, 0, 1, 2)
-        s_layout.addWidget(q_splitter_h1, 1, 0, 1, 2)
+        s_layout.addWidget(QLabel('Current Image'), 0, 0, 1, 3)
+        s_layout.addWidget(q_splitter_h1, 1, 0, 1, 3)
         s_layout.addWidget(self.fit_button, 2, 0)
         s_layout.addWidget(self.apply_button, 2, 1)
+        s_layout.addWidget(self.close_button, 2, 2)
 
         single_roi_widget = QWidget(self)
 
