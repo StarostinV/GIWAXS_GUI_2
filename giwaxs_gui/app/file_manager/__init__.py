@@ -16,6 +16,7 @@ from .read_polar_images import _ReadPolarImage
 from .read_geometry import _ReadGeometry
 from .read_roi_data import _ReadRoiData
 from .read_meta_roi import _ReadMetaData
+from .read_radial_profile import _ReadRadialProfile
 from .config_manager import _GlobalConfigManager
 from .read_fits import _ReadFits
 
@@ -122,6 +123,7 @@ class FileManager(QObject):
         self.polar_images: _ReadPolarImage = _ReadPolarImage(self._project_structure)
         self.rois_data: _ReadRoiData = _ReadRoiData(self._project_structure)
         self.fits: _ReadFits = _ReadFits(self._project_structure)
+        self.profiles: _ReadRadialProfile = _ReadRadialProfile(self._project_structure)
         self.project_name = self._project_folder.name
 
         for key in self._project_structure.root.folder_children:

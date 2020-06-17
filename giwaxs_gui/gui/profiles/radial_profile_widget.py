@@ -7,7 +7,7 @@ from scipy.signal import find_peaks
 from PyQt5.QtGui import QColor
 
 from ..basic_widgets import (ConfirmButton,
-                             RoundedPushButton, Smooth1DPlot,
+                             RoundedPushButton, PlotBC,
                              BlackToolBar, BasicInputParametersWidget)
 from ...app.app import App
 from ..tools import Icon
@@ -18,11 +18,11 @@ from ..tools import show_error
 logger = logging.getLogger(__name__)
 
 
-class RadialProfileWidget(AbstractRoiHolder, Smooth1DPlot):
+class RadialProfileWidget(AbstractRoiHolder, PlotBC):
 
     def __init__(self, parent=None):
         AbstractRoiHolder.__init__(self, 'RadialProfile')
-        Smooth1DPlot.__init__(self, App().radial_profile, parent)
+        PlotBC.__init__(self, profile=App().radial_profile, parent=parent)
         self.app = App()
         self.app.geometry_holder.sigScaleChanged.connect(self._update_axis)
         self.app.image_holder.sigEmptyImage.connect(self.clear_plot)
@@ -33,6 +33,8 @@ class RadialProfileWidget(AbstractRoiHolder, Smooth1DPlot):
         # self.image_view.plot_item.setTitle('Radial Profile')
         self.image_view.plot_item.getAxis('bottom').setLabel('|Q|', color='white', font_size='large')
         self.image_view.plot_item.getAxis('left').setLabel('Intensity', color='white', font_size='large')
+
+        self.sigBackgroundChanged.connect(self.profile.save_state)
 
     def _init_radial_toolbars(self):
 

@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 
-from ..basic_widgets import Smooth1DPlot
+from ..basic_widgets import PlotBC
 from ...app.app import App
 from ..roi_widgets.abstract_roi_holder import AbstractRoiHolder
 from ..roi_widgets.roi_1d_widget import Roi1DAngular
 
 
-class AngularProfileWidget(AbstractRoiHolder, Smooth1DPlot):
+class AngularProfileWidget(AbstractRoiHolder, PlotBC):
     def __init__(self, parent=None):
         AbstractRoiHolder.__init__(self, 'AngularProfile')
-        Smooth1DPlot.__init__(self, App().angular_profile, parent)
+        PlotBC.__init__(self, App().angular_profile, parent)
         self._selected_key = None
 
         # self.image_view.plot_item.setTitle('Angular Profile')

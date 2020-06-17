@@ -6,8 +6,7 @@ import numpy as np
 
 from PyQt5.QtWidgets import (QMainWindow, QWidget,
                              QFrame, QHBoxLayout,
-                             QVBoxLayout, QPushButton,
-                             QRadioButton)
+                             QVBoxLayout, QPushButton)
 from PyQt5.QtGui import QColor, QPen
 from PyQt5.QtCore import Qt, pyqtSignal
 
@@ -17,6 +16,8 @@ from .toolbars import BlackToolBar
 from ..basic_widgets import RoundedPushButton
 from ..tools import Icon, show_error
 from ...app.profiles import BasicProfile
+
+from ..tools import get_pen, center_widget
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +64,7 @@ class Smooth1DPlot(QMainWindow):
         self.profile = profile
         self.image_view = Custom1DPlot()
         self.setCentralWidget(self.image_view)
-        self.__init_toolbars()
-
-        self.profile.sigDataUpdated.connect(self.plot)
+        self._init_toolbars()
 
     @property
     def x(self):
@@ -80,13 +79,13 @@ class Smooth1DPlot(QMainWindow):
     def y(self) -> np.ndarray or None:
         return self.profile.y
 
-    def __init_toolbars(self):
+    def _init_toolbars(self):
         param_toolbar = BlackToolBar('Parameters', self)
         self.addToolBar(param_toolbar)
 
-        self.__init_sigma_slider(param_toolbar)
+        self._init_sigma_slider(param_toolbar)
 
-    def __init_sigma_slider(self, toolbar):
+    def _init_sigma_slider(self, toolbar):
         sigma_slider = LabeledSlider('𝞼', (0, 10), self.profile.sigma,
                                      decimals=2)
 
@@ -108,6 +107,10 @@ class Smooth1DPlot(QMainWindow):
         self.profile.set_sigma(value)
         self.plot()
 
+    def update_plot(self):
+        self.sigma_slider.set_value(self.profile.sigma, True)
+        self.plot()
+
     def auto_range(self):
         self.image_view.plot_item.autoRange()
 
@@ -121,18 +124,19 @@ class Smooth1DPlot(QMainWindow):
 
 
 class PlotBC(Smooth1DPlot):
+    sigBackgroundChanged = pyqtSignal()
 
     def __init__(self, profile: BasicProfile, parent=None):
         super().__init__(profile, parent)
         self._status = BaseLineStatus.no_baseline
-        self._baseline_setup_widget = None
-        self.baseline_plot = None
-        self.__init_roi()
-        self.profile.sigDataToBeUpdated.connect(self._clear_baseline)
+        self.baseline_plot = self.image_view.plot_item.plot()
+        self._init_roi()
+        self._baseline_setup_widget = BaseLineSetup(self, self._status, **self.profile.get_parameters())
+        self.profile.sigDataUpdated.connect(self.update_plot)
 
     @property
     def y(self):
-        if self._status == BaseLineStatus.baseline_subtracted:
+        if self._status == BaseLineStatus.baseline_subtracted and self.profile.baseline is not None:
             return self.profile.y - self.profile.baseline
         else:
             return self.profile.y
@@ -143,8 +147,8 @@ class PlotBC(Smooth1DPlot):
     def is_shown(self, shown: bool):
         self.profile.is_shown = shown
 
-    def __init_toolbars(self):
-        super().__init_toolbars()
+    def _init_toolbars(self):
+        super()._init_toolbars()
 
         baseline_toolbar = BlackToolBar('Baseline Correction')
         self.addToolBar(baseline_toolbar)
@@ -154,26 +158,46 @@ class PlotBC(Smooth1DPlot):
         baseline_button.clicked.connect(self.open_baseline_setup)
         baseline_toolbar.addWidget(baseline_button)
 
-    def __init_roi(self):
+    def _init_roi(self):
         self._roi = LinearRegionItem()
         self._roi.hide()
         self._roi.setBrush(QColor(255, 255, 255, 50))
-        self.image_view.plot_item.addItem(self.roi)
+        self.image_view.plot_item.addItem(self._roi)
 
     def open_baseline_setup(self):
         if self.y is None:
             return
-        self._baseline_setup_widget = setup = BaseLineSetup(
-            self._status, **self.profile.get_parameters())
+        setup = self._baseline_setup_widget
         if self.profile.x_range is None:
             self._set_default_bounds()
+        self._roi.setRegion(self.profile.x_range)
 
         setup.calculate_signal.connect(self._on_calculate_baseline)
         setup.subtract_signal.connect(self._on_subtracting_baseline)
         setup.restore_signal.connect(self._on_restoring_data)
         setup.close_signal.connect(self._on_closing_setup)
         setup.show()
-        self.roi.show()
+        self._roi.show()
+
+    # def show_baseline(self):
+    #     if (self.profile.baseline is None or self._status == BaseLineStatus.baseline_calculated or
+    #             self._status == BaseLineStatus.baseline_restored):
+    #         return
+    #     self._on_restoring_data()
+
+    def update_plot(self):
+        self.sigma_slider.set_value(self.profile.sigma, True)
+
+        if self.profile.baseline is None:
+            self.clear_baseline()
+        else:
+            self._status = BaseLineStatus.baseline_subtracted
+        self.plot()
+
+    def plot_baseline(self):
+        if self.profile.baseline is not None:
+            self.baseline_plot.setData(self.profile.x, self.profile.baseline,
+                                       pen=get_pen(width=4, color='red', style=Qt.DashDotLine))
 
     def _set_default_bounds(self):
         if self.x is None:
@@ -182,67 +206,43 @@ class PlotBC(Smooth1DPlot):
             self.profile.x_range = (self.x.min(), self.x.max())
 
     def _update_bounds(self):
-        self.profile.x_range = self.roi.getRegion()
+        self.profile.x_range = self._roi.getRegion()
 
     def _set_status(self, status: 'BaseLineStatus'):
         self._status = status
-        if self._baseline_setup_widget:
-            self._baseline_setup_widget.set_status(status)
+        self._baseline_setup_widget.set_status(status)
 
     def _on_calculate_baseline(self, params: dict):
         self.profile.set_parameters(**params)
-        self.update_bounds()
+        self._update_bounds()
         try:
             self.profile.update_baseline()
         except Exception as err:
             logger.exception(err)
             show_error('Failed calculating baseline. Change roi region or parameters and try again.',
-                       'Baseline calculation error')
+                       error_title='Baseline calculation error')
             return
         self._set_status(BaseLineStatus.baseline_calculated)
-        self._plot_baseline()
+        self.plot_baseline()
 
     def _on_subtracting_baseline(self):
-        self._remove_baseline_from_plot()
+        self.baseline_plot.clear()
         self._set_status(BaseLineStatus.baseline_subtracted)
         self.plot()
 
     def _on_restoring_data(self):
         self._set_status(BaseLineStatus.baseline_restored)
-        self._plot_baseline()
+        self.plot_baseline()
         self.plot()
 
     def _on_closing_setup(self):
-        self._baseline_setup_widget = None
-        self.roi.hide()
-        if (self.status == BaseLineStatus.baseline_calculated or
-                self.status == BaseLineStatus.baseline_restored):
-            self._clear_baseline()
+        self._baseline_setup_widget.hide()
+        self._roi.hide()
+        self.clear_baseline()
+        self.sigBackgroundChanged.emit()
 
-    def _plot_baseline(self):
-        if not self.baseline_plot:
-            self.baseline_plot = self.image_view.plot_item.plot()
-
-        self.baseline_plot.setData(self.x, self.profile.baseline, pen=self._get_baseline_pen())
-
-    @staticmethod
-    def _get_baseline_pen():
-        pen = QPen(QColor('red'))
-        pen.setStyle(Qt.DashDotLine)
-        pen.setWidth(4)
-        pen.setCapStyle(Qt.RoundCap)
-        pen.setJoinStyle(Qt.RoundJoin)
-        pen.setCosmetic(True)
-        return pen
-
-    def _remove_baseline_from_plot(self):
-        if self.baseline_plot:
-            self.image_view.plot_item.removeItem(self.baseline_plot)
-            self.baseline_plot = None
-
-    def _clear_baseline(self):
-        self._set_status(BaseLineStatus.no_baseline)
-        self._remove_baseline_from_plot()
+    def clear_baseline(self):
+        self.baseline_plot.clear()
 
 
 class BaseLineStatus(Enum):
@@ -258,26 +258,30 @@ class BaseLineSetup(QWidget):
     restore_signal = pyqtSignal()
     close_signal = pyqtSignal()
 
-    def __init__(self, status: BaseLineStatus, smoothness: float, asymmetry: float):
-        super().__init__()
+    def __init__(self, parent, status: BaseLineStatus, smoothness: float, asymmetry: float):
+        super().__init__(parent=parent)
+        self.setAttribute(Qt.WA_DeleteOnClose, False)
         self.setWindowFlag(Qt.WindowStaysOnTopHint)
-        self.setWindowTitle(self.NAME)
+        self.setWindowFlag(Qt.Window)
+        self.setWindowTitle('Baseline setup')
         self.setWindowIcon(Icon('baseline'))
+        self.setGeometry(0, 0, 400, 300)
         self._status = None
-        self.__init_ui(smoothness, asymmetry)
+        self._init_ui(smoothness, asymmetry)
         self.set_status(status)
+        center_widget(self)
 
-    def __init_ui(self, smoothness: float, asymmetry: float):
+    def _init_ui(self, smoothness: float, asymmetry: float):
         layout = QVBoxLayout(self)
 
-        self.smoothness_slider = LabeledSlider('Smoothness parameter', (1e2, 1e8), smoothness,
-                                               self, Qt.Horizontal, decimals=3, scientific=True)
+        self.smoothness_slider = LabeledSlider('Smoothness', (1e1, 1e10), smoothness,
+                                               self, Qt.Horizontal, decimals=3, scientific=True, log_scale=True)
 
-        self.asymmetry_slider = LabeledSlider('Asymmetry parameter', (0.001, 0.1), asymmetry,
-                                              self, Qt.Horizontal, decimals=3, scientific=True)
+        self.asymmetry_slider = LabeledSlider('Asymmetry', (0.0001, 1), asymmetry,
+                                              self, Qt.Horizontal, decimals=3, scientific=True, log_scale=True)
 
-        self.save_params_box = QRadioButton('Save as default')
-        self.save_params_box.setChecked(True)
+        # self.save_params_box = QRadioButton('Save as default')
+        # self.save_params_box.setChecked(True)
         self.calculate_button = QPushButton('Calculate baseline')
         self.calculate_button.clicked.connect(self.emit_calculate)
         self.subtract_button = QPushButton('Subtract baseline')
@@ -287,7 +291,7 @@ class BaseLineSetup(QWidget):
 
         layout.addWidget(self.smoothness_slider)
         layout.addWidget(self.asymmetry_slider)
-        layout.addWidget(self.save_params_box)
+        # layout.addWidget(self.save_params_box)
         layout.addWidget(self.calculate_button)
         layout.addWidget(self.subtract_button)
         layout.addWidget(self.restore_button)
@@ -315,8 +319,8 @@ class BaseLineSetup(QWidget):
         self._status = status
 
     def get_params_dict(self):
-        return dict(smoothness_param=self.smoothness_slider.value,
-                    asymmetry_param=self.asymmetry_slider.value)
+        return dict(smoothness=self.smoothness_slider.value,
+                    asymmetry=self.asymmetry_slider.value)
 
     def emit_calculate(self):
         self.calculate_signal.emit(self.get_params_dict())
