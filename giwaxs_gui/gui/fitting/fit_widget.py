@@ -4,6 +4,8 @@ from typing import List, Dict, Iterable, Union
 from enum import Enum, auto
 import gc
 
+import numpy as np
+
 from PyQt5.QtWidgets import (QWidget, QGridLayout, QPushButton,
                              QLabel, QFrame, QSplitter, QMenu,
                              QMessageBox, QComboBox, QScrollArea,
@@ -17,9 +19,10 @@ from ..roi_widgets.roi_1d_widget import Roi1D
 from ...app.fitting import Fit, FitObject, FittingType, BackgroundType
 from ...app.file_manager import ImageKey, FolderKey
 from ...app.rois.roi_data import Roi, RoiTypes
+from ...app.profiles import BasicProfile, SavedProfile
 from ...app import App
 from ..tools import Icon, get_pen
-from ..basic_widgets import (Custom1DPlot, CustomImageViewer,
+from ..basic_widgets import (Custom1DPlot, CustomImageViewer, PlotBC,
                              ParametersSlider, LabeledSlider)
 from .multi_fit import MultiFitWindow
 
@@ -99,6 +102,7 @@ class FitWidget(QWidget):
         self.fit_button.clicked.connect(self._fit_clicked)
         self.apply_button.clicked.connect(self.apply_results)
         self.radial_viewer.sigUpdateFit.connect(self._radial_roi_moved)
+        self.radial_viewer.sigUpdateProfile.connect(self._profile_updated)
         self.sliders_widget.sigValueChanged.connect(self._sliders_changed)
 
         self.functions_box = QComboBox(self)
@@ -170,12 +174,16 @@ class FitWidget(QWidget):
 
         q_splitter_v.setSizes((300, 600, self.width() - 900))
         q_splitter_h1.setSizes((400, self.height() - 400))
-        q_splitter_h2.setSizes((400, 50, self.height() - 350))
+        q_splitter_h2.setSizes((400, self.height() - 400))
         layout.addWidget(q_splitter_v, 0, 0, 2, 2)
 
     @pyqtSlot(name='closeMultiFit')
     def _close_multi_fit(self):
         self.multi_fit_window = None
+
+    @property
+    def current_image_key(self):
+        return self.fit_object.image_key if self.fit_object else None
 
     @pyqtSlot(object, name='setFit')
     def set_fit(self, fit_object: FitObject):
@@ -207,7 +215,8 @@ class FitWidget(QWidget):
         self.polar_viewer.set_y_axis(self.fit_object.phi_axis.min(), self.fit_object.phi_axis.max())
         self.polar_viewer.view_box.setAspectLocked(True, self.fit_object.aspect_ratio)
         self.polar_viewer.set_auto_range()
-        self.radial_viewer.set_data(self.fit_object.r_axis, self.fit_object.r_profile)
+        self.radial_viewer.update_data(self.fit_object.r_axis, self.fit_object.r_profile,
+                                       self.current_image_key, self.fit_object.saved_profile)
 
     def _update_roi_widgets(self):
         for fit in self.fit_object.fits.values():
@@ -322,6 +331,12 @@ class FitWidget(QWidget):
                 self.fit_current_button.setText(CurrentFitButtonStatus.fit.value)
             else:
                 self.fit_current_button.setText(CurrentFitButtonStatus.unfix.value)
+
+    @pyqtSlot(object, name='profileUpdated')
+    def _profile_updated(self, saved_profile: SavedProfile):
+        self.fit_object.set_profile(saved_profile=saved_profile)
+        if self._selected_fit:
+            self.fit_plot.update_plot()
 
     @pyqtSlot(bool, name='updateFit')
     def _radial_roi_moved(self, r_range_changed: bool):
@@ -474,6 +489,7 @@ class FitWidget(QWidget):
         self.multi_fit_window.select_fit(self.selected_key)
         self._update_combo_boxes()
         self._update_range_slider()
+        self._update_current_fit_button()
 
     def _remove_selected_fit(self):
         if self._selected_fit:
@@ -677,33 +693,74 @@ class SlidersWidget(QWidget):
             l.setText(self.DEFAULT_LABEL)
 
 
-class RadialFitWidget(Custom1DPlot):
+class FittingProfile(BasicProfile):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.current_key = None
+        self.profile_fm = App().fm.profiles
+
+    def save_state(self):
+        if self.current_key and self.raw_y is not None:
+            saved_profile = self.to_save()
+            self.profile_fm[self.current_key] = saved_profile
+            return saved_profile
+
+    def update_data_from_source(self, *args, **kwargs):
+        x, y, self.current_key, saved_profile = args
+        if not saved_profile:
+            saved_profile = self.profile_fm[self.current_key] if self.current_key else None
+
+        if not saved_profile or np.any(saved_profile.x != x):
+            self.clear_baseline()
+            self.set_data(y, x)
+
+        else:
+            self.from_save(saved_profile)
+
+
+class RadialFitWidget(PlotBC):
     sigUpdateFit = pyqtSignal(bool)
+    sigUpdateProfile = pyqtSignal(object)
 
     def __init__(self, parent=None):
-        super().__init__(parent=parent)
+        super().__init__(FittingProfile(), parent=parent)
+
         self.fit: Fit = None
-        self.roi_widget: Roi1D = None
-        self.range_roi: Roi = None
-        self.range_widget: Roi1D = None
-
-    @pyqtSlot(object, name='addFit')
-    def set_fit(self, fit: Fit):
-        self.remove_fit()
-
-        self.fit = fit
-        self.roi_widget = Roi1D(fit.roi, enable_context=False)
-        r1, r2 = fit.r_range
-
-        self.range_roi = Roi(radius=(r1 + r2) / 2, width=r2 - r1, key=-1)
-        self.range_widget = Roi1D(self.range_roi, enable_context=False)
+        self.roi_widget: Roi1D = Roi1D(Roi(0, 0), enable_context=False)
+        self.range_roi: Roi = Roi(radius=0, width=1, key=-1)
+        self.range_widget: Roi1D = Roi1D(self.range_roi, enable_context=False)
         self.range_widget.set_color(QColor(255, 255, 255, 50))
-        self.plot_item.addItem(self.range_widget)
-        self.plot_item.addItem(self.roi_widget)
+
+        self.sigBackgroundChanged.connect(self._on_profile_changed)
+        self.sigSigmaChanged.connect(self._on_profile_changed)
 
         self.range_widget.sigRoiMoved.connect(self._update_fit)
         self.roi_widget.sigRoiMoved.connect(self._update_fit)
-        self.plot_item.autoRange()
+
+        self.image_view.plot_item.addItem(self.range_widget)
+        self.image_view.plot_item.addItem(self.roi_widget)
+
+        self.roi_widget.hide()
+        self.range_widget.hide()
+
+    @pyqtSlot(name='onBackgroundChanged')
+    def _on_profile_changed(self):
+        self.sigUpdateProfile.emit(self.profile.save_state())
+
+    @pyqtSlot(object, name='addFit')
+    def set_fit(self, fit: Fit):
+        self.fit = fit
+        self.roi_widget.set_roi(fit.roi)
+        r1, r2 = fit.r_range
+
+        self.range_roi.radius = (r1 + r2) / 2
+        self.range_roi.width = r2 - r1
+        self.range_widget.move_roi()
+
+        self.range_widget.show()
+        self.roi_widget.show()
+
+        self.image_view.plot_item.autoRange()
 
     def update_roi(self):
         if not self.fit:
@@ -723,16 +780,9 @@ class RadialFitWidget(Custom1DPlot):
 
     @pyqtSlot(name='removeFit')
     def remove_fit(self):
-        if self.fit:
-            self.plot_item.removeItem(self.roi_widget)
-            self.plot_item.removeItem(self.range_widget)
-            self.roi_widget.deleteLater()
-            self.range_widget.deleteLater()
-
-            self.fit = None
-            self.roi_widget = None
-            self.range_roi = None
-            self.range_widget = None
+        self.roi_widget.hide()
+        self.range_widget.hide()
+        self.fit = None
 
 
 class FitPlot(Custom1DPlot):

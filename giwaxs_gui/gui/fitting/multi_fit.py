@@ -8,7 +8,6 @@ from PyQt5.QtCore import (QObject, pyqtSlot, pyqtSignal,
                           QCoreApplication, Qt, QThread)
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QPushButton,
                              QProgressBar, QSlider, QLabel)
-from PyQt5.QtGui import QColor, QPen
 
 from pyqtgraph import GraphicsLayoutWidget, FillBetweenItem, InfiniteLine
 
@@ -16,7 +15,7 @@ from ...app import App, Roi, RoiData
 from ...app.file_manager import ImageKey, FolderKey
 from ...app.fitting import FitObject, Fit
 
-from ..tools import get_pen
+from ..tools import get_pen, center_widget
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +157,16 @@ def get_new_fit(previous_fit: FitObject, saved_fit: FitObject = None,
             return
 
         saved_fit: FitObject = FitObject(new_image_key, polar_image, geometry.r_axis, geometry.phi_axis)
+
+    if not saved_fit.saved_profile:
+
+        saved_profile = App().fm.profiles[new_image_key]
+
+        if saved_profile:
+            saved_fit.set_profile(saved_profile, update_baseline=False)
+        elif previous_fit.saved_profile:
+            saved_fit.set_profile(previous_fit.saved_profile, update_baseline=True)
+            App().fm.profiles[new_image_key] = saved_fit.saved_profile
 
     if add_fits:
         for fit in previous_fit.fits.values():
@@ -516,6 +525,7 @@ class SaveProgressWidget(QWidget):
         self.setAttribute(Qt.WA_DeleteOnClose, True)
 
         self._init_ui(num)
+        center_widget(self)
         self.show()
 
     def _init_ui(self, num: int):

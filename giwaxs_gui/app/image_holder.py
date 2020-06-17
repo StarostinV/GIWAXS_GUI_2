@@ -178,19 +178,25 @@ class ImageHolder(QObject):
     def open_fit_rois(self, rois: List[Roi]):
         fit_object = FitObject(self._current_key, self.polar_image,
                                self.geometry.r_axis, self.geometry.phi_axis)
+        profile = self._fm.profiles[self._current_key]
+
+        if profile:
+            fit_object.set_profile(profile)
+
         for roi in rois:
             fit_object.new_fit(roi)
+
         self.sigFitOpen.emit(fit_object)
 
     @pyqtSlot(object, name='applyFit')
-    def apply_fit(self, g_fit: FitObject):
+    def apply_fit(self, fit_object: FitObject):
         name = dt.now().ctime()
-        g_fit.name = name
-        parent = g_fit.image_key.parent
-        g_fit.image_key.remove_parent()
-        self._fm.fits[g_fit.image_key, name] = g_fit
-        g_fit.image_key.set_parent(parent)
+        fit_object.name = name
+        parent = fit_object.image_key.parent
+        fit_object.image_key.remove_parent()
+        self._fm.fits[fit_object.image_key, name] = fit_object
+        fit_object.image_key.set_parent(parent)
 
-        self._roi_dict.apply_fit([fit.roi for fit in g_fit.fits.values()], g_fit.image_key)
+        self._roi_dict.apply_fit([fit.roi for fit in fit_object.fits.values()], fit_object.image_key)
 
-        self.sigFitSaved.emit((g_fit.image_key, name))
+        self.sigFitSaved.emit((fit_object.image_key, name))
