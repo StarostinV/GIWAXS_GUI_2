@@ -47,16 +47,16 @@ class ConstantBackground(Background):
 
     @staticmethod
     def _bounds(x: np.ndarray, y: np.ndarray) -> tuple:
-        max_y = y.max()
         min_y = y.min()
 
-        return [min_y], [max_y], [0]
+        return [min_y], [y.max()], [min(0, min_y)]
 
     def __call__(self, x: np.ndarray, *params) -> np.ndarray:
         return params[-1] * np.ones_like(x)
 
     def amp_bounds(self, x: np.ndarray, y: np.ndarray, params: list) -> tuple:
-        return y.max() - params[0], y.max(), 0
+        amp = max(y.max() - params[0], 0)
+        return amp, max(y.max(), amp), min(amp, 0)
 
 
 class LinearBackground(Background):
@@ -76,41 +76,8 @@ class LinearBackground(Background):
         return params[-2] * x + params[-1]
 
     def amp_bounds(self, x: np.ndarray, y: np.ndarray, params: list) -> tuple:
-        return y.max() - (y[0] + y[-1]) / 2, y.max(), 0
-
-
-class BaselineCorrection(Background):
-    PARAM_NAMES = ()
-    NUM = 0
-    # TYPE = BackgroundType.auto
-
-    def __init__(self, y: np.ndarray, get_r: Callable, smoothness: float = 1, asymmetry: float = 1):
-        self.y = y
-        self.get_r = get_r
-        self.smoothness: float = smoothness
-        self.asymmetry: float = asymmetry
-        self.curve = np.zeros_like(y)
-        self.update_curve()
-
-    def set_params(self, *, smoothness: float = None, asymmetry: float = None):
-        if smoothness:
-            self.smoothness = smoothness
-        if asymmetry:
-            self.asymmetry = asymmetry
-        self.update_curve()
-
-    def update_curve(self):
-        self.curve = baseline_correction(self.y, self.smoothness, self.asymmetry)
-
-    @staticmethod
-    def _bounds(x: np.ndarray, y: np.ndarray) -> tuple:
-        return [], [], []
-
-    def __call__(self, x: np.ndarray, *params) -> np.ndarray:
-        return self.curve[self.get_r(x[0]):self.get_r(x[-1])]
-
-    def amp_bounds(self, x: np.ndarray, y: np.ndarray, params: list) -> tuple:
-        return y.max() - (y[0] + y[-1]) / 2, y.max(), 0
+        amp = y.max() - (y[0] + y[-1]) / 2
+        return amp, max(y.max(), amp), min(amp, 0)
 
 
 BACKGROUNDS: Dict[BackgroundType, Background.__class__] = {
