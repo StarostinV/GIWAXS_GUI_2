@@ -15,11 +15,11 @@ class App(metaclass=SingletonMeta):
 
     def __init__(self):
         self.fm: FileManager = FileManager()
-        self.geometry_holder = GeometryHolder(self.fm)
-        self.roi_dict = RoiDict(self.fm, self.geometry_holder)
-        self.image_holder = ImageHolder(self.fm, self.geometry_holder, self.roi_dict)
-        self.radial_profile = RadialProfile(self.image_holder)
-        self.angular_profile = AngularProfile(self.image_holder)
+        self.geometry_holder: GeometryHolder = GeometryHolder(self.fm)
+        self.roi_dict: RoiDict = RoiDict(self.fm, self.geometry_holder)
+        self.image_holder: ImageHolder = ImageHolder(self.fm, self.geometry_holder, self.roi_dict)
+        self.radial_profile: RadialProfile = RadialProfile(self.image_holder, self.fm)
+        self.angular_profile: AngularProfile = AngularProfile(self.image_holder)
 
         self.image_holder.sigPolarImageChanged.connect(self.radial_profile.update)
         self.image_holder.sigPolarImageChanged.connect(self.angular_profile.update)
@@ -38,6 +38,7 @@ class App(metaclass=SingletonMeta):
     def save_state(self):
         self.geometry_holder.save_state()
         self.roi_dict.save_state()
+        # self.radial_profile.save_state()
 
     @property
     def image(self):
