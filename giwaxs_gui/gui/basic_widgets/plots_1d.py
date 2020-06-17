@@ -59,6 +59,8 @@ class Smooth1DPlot(QMainWindow):
     _MaximumSliderWidth = 200
     _MaximumSliderHeight = 30
 
+    sigSigmaChanged = pyqtSignal(float)
+
     def __init__(self, profile: BasicProfile, parent=None):
         super().__init__(parent)
         self.profile = profile
@@ -106,10 +108,7 @@ class Smooth1DPlot(QMainWindow):
     def update_sigma(self, value: float):
         self.profile.set_sigma(value)
         self.plot()
-
-    def update_plot(self):
-        self.sigma_slider.set_value(self.profile.sigma, True)
-        self.plot()
+        self.sigSigmaChanged.emit(self.profile.sigma)
 
     def auto_range(self):
         self.image_view.plot_item.autoRange()
@@ -141,8 +140,8 @@ class PlotBC(Smooth1DPlot):
         else:
             return self.profile.y
 
-    def update_data(self):
-        self.profile.update()
+    def update_data(self, *args, **kwargs):
+        self.profile.update_data(*args, **kwargs)
 
     def is_shown(self, shown: bool):
         self.profile.is_shown = shown
@@ -168,9 +167,21 @@ class PlotBC(Smooth1DPlot):
         if self.y is None:
             return
         setup = self._baseline_setup_widget
+
         if self.profile.x_range is None:
             self._set_default_bounds()
         self._roi.setRegion(self.profile.x_range)
+
+        if self.profile.baseline is None:
+            self._set_status(BaseLineStatus.no_baseline)
+        # elif self._status == BaseLineStatus.no_baseline:
+        #     self._set_status(BaseLineStatus.baseline_subtracted)
+        # else:
+        #     self._set_status(self._status)
+
+        # self.plot()
+
+        setup.set_parameters(self.profile.get_parameters())
 
         setup.calculate_signal.connect(self._on_calculate_baseline)
         setup.subtract_signal.connect(self._on_subtracting_baseline)
@@ -191,7 +202,7 @@ class PlotBC(Smooth1DPlot):
         if self.profile.baseline is None:
             self.clear_baseline()
         else:
-            self._status = BaseLineStatus.baseline_subtracted
+            self._set_status(BaseLineStatus.baseline_subtracted)
         self.plot()
 
     def plot_baseline(self):
@@ -239,6 +250,9 @@ class PlotBC(Smooth1DPlot):
         self._baseline_setup_widget.hide()
         self._roi.hide()
         self.clear_baseline()
+        if self._status != BaseLineStatus.baseline_subtracted:
+            self._set_status(BaseLineStatus.no_baseline)
+            self.profile.clear_baseline(clear_range=False)
         self.sigBackgroundChanged.emit()
 
     def clear_baseline(self):
@@ -321,6 +335,12 @@ class BaseLineSetup(QWidget):
     def get_params_dict(self):
         return dict(smoothness=self.smoothness_slider.value,
                     asymmetry=self.asymmetry_slider.value)
+
+    def set_parameters(self, params: dict):
+        if 'smoothness' in params:
+            self.smoothness_slider.set_value(params['smoothness'], True)
+        if 'asymmetry' in params:
+            self.asymmetry_slider.set_value(params['asymmetry'], True)
 
     def emit_calculate(self):
         self.calculate_signal.emit(self.get_params_dict())
