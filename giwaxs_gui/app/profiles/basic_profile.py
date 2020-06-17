@@ -4,12 +4,11 @@ from typing import Tuple
 from dataclasses import dataclass, asdict
 from abc import abstractmethod
 
-from scipy.ndimage import gaussian_filter1d
 import numpy as np
 
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject
 
-from ..utils import baseline_correction
+from ..utils import baseline_correction, smooth_curve
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +72,7 @@ class SmoothedProfile(QObject):
         if sigma <= 0:
             return
         self._sigma = sigma
-        self._y = _smooth_data(self._raw_y, self.sigma)
+        self._y = smooth_curve(self._raw_y, self.sigma)
 
     def to_save(self) -> SavedProfile:
         return SavedProfile(self.raw_y, self.x, self.x_range, self.sigma, self.baseline_params, self.baseline)
@@ -94,7 +93,7 @@ class SmoothedProfile(QObject):
 
     def set_data(self, y: np.ndarray, x: np.ndarray):
         self._raw_y = y
-        self._y = _smooth_data(self._raw_y, self.sigma)
+        self._y = smooth_curve(self._raw_y, self.sigma)
         self._x = x
 
     def update_baseline(self):
@@ -110,9 +109,10 @@ class SmoothedProfile(QObject):
         self._baseline = np.zeros_like(self._y)
         self._baseline[x1:x2] = baseline
 
-    def clear_baseline(self):
+    def clear_baseline(self, clear_range: bool = True):
         self._baseline = None
-        self.x_range = None
+        if clear_range:
+            self.x_range = None
 
     def _get_coords(self):
         scale_factor = self.x.size / (self.x.max() - self.x.min())
@@ -124,14 +124,6 @@ class SmoothedProfile(QObject):
         x2 = min((max((x2, min_ind)), max_ind))
         xs = (x1, x2)
         return min(xs), max(xs)
-
-
-def _smooth_data(y: np.ndarray, sigma: float) -> np.ndarray or None:
-    if y is not None:
-        if sigma > 0:
-            return gaussian_filter1d(y, sigma)
-        else:
-            return y
 
 
 class BasicProfile(SmoothedProfile):

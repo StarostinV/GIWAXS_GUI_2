@@ -1,6 +1,9 @@
 import logging
+
 from scipy import sparse
 from scipy.sparse.linalg import spsolve
+from scipy.ndimage import gaussian_filter1d
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -42,3 +45,11 @@ def baseline_correction(y: np.ndarray,
     else:
         logger.info(f'Solution has not converged, max number of iterations reached.')
     return np.nan_to_num(z)
+
+
+def smooth_curve(y: np.ndarray, sigma: float) -> np.ndarray or None:
+    if y is not None:
+        if sigma > 0:
+            return gaussian_filter1d(y, sigma)
+        else:
+            return y
