@@ -7,6 +7,8 @@ from PyQt5.QtWidgets import (QSlider, QLineEdit, QHBoxLayout,
 from PyQt5.QtGui import QPainter, QPainterPath, QColor, QIntValidator
 from PyQt5.QtCore import Qt, pyqtSignal, QSize, QRectF
 
+import numpy as np
+
 from .buttons import RoundedPushButton
 
 from ..tools import color_animation
@@ -19,10 +21,11 @@ class DoubleSlider(QSlider):
     _MAX_INT = int(1e9)
 
     def __init__(self, orientation=Qt.Horizontal, parent=None, decimals: int = 5,
-                 value: float = 0, bounds: tuple = (0, 1)):
+                 value: float = 0, bounds: tuple = (0, 1), log_scale: bool = False):
         super().__init__(orientation=orientation, parent=parent)
-        self.decimals = decimals
-        self._pressed = False
+        self.decimals: int = decimals
+        self._pressed: bool = False
+        self._log_scale: bool = log_scale
         self.sliderPressed.connect(self._set_pressed)
         self.sliderReleased.connect(self._set_released)
         self.sliderReleased.connect(self.emit_value)
@@ -33,6 +36,8 @@ class DoubleSlider(QSlider):
 
         self._min_value = bounds[0]
         self._max_value = bounds[1]
+        if self._log_scale and bounds[0] <= 0:
+            raise ValueError(f'Wrong minimal bound for log scale: {bounds[0]}')
         self.setValue(value)
 
     def emit_value(self, *args):
@@ -57,12 +62,20 @@ class DoubleSlider(QSlider):
 
     def _real_to_view(self, value):
         try:
-            return int((value - self._min_value) / self._value_range * self._MAX_INT)
+            if self._log_scale:
+                return int((np.log10(value) - np.log10(self._min_value)) /
+                           (np.log10(self._max_value) - np.log10(self._min_value)) * self._MAX_INT)
+            else:
+                return int((value - self._min_value) / self._value_range * self._MAX_INT)
         except ZeroDivisionError:
             return 0
 
     def _view_to_real(self, value):
-        return value / self._MAX_INT * self._value_range + self._min_value
+        if self._log_scale:
+            return 10 ** (value / self._MAX_INT * (np.log10(self._max_value) - np.log10(self._min_value)) +
+                          np.log10(self._min_value))
+        else:
+            return value / self._MAX_INT * self._value_range + self._min_value
 
     def value(self):
         return self._view_to_real(super().value())
@@ -73,6 +86,8 @@ class DoubleSlider(QSlider):
     def setMinimum(self, value):
         if value > self._max_value:
             raise ValueError("Minimum limit cannot be higher than maximum")
+        if self._log_scale and value <= 0:
+            raise ValueError(f'Wrong minimal bound for log scale: {value}')
         real_value = self.value()
         self._min_value = value
         self.setValue(real_value)
@@ -93,6 +108,8 @@ class DoubleSlider(QSlider):
         real_value = self.value()
         self._min_value = p_int
         self._max_value = p_int_1
+        if self._log_scale and p_int <= 0:
+            raise ValueError(f'Wrong minimal bound for log scale: {p_int}')
         self.setValue(real_value)
 
     def minimum(self):
@@ -111,13 +128,14 @@ class LabeledSlider(QWidget):
 
     def __init__(self, name: str, bounds: tuple = (0, 1),
                  value: float = 0,
-                 parent=None, orientation=Qt.Horizontal, decimals: int = 3, scientific: bool = False):
+                 parent=None, orientation=Qt.Horizontal, decimals: int = 3, scientific: bool = False,
+                 log_scale: bool = False):
         super().__init__(parent=parent)
         self.name = name
         self._decimals = decimals
         self._scientific: bool = scientific
         self._bounds = bounds
-        self.slider = DoubleSlider(orientation, parent, decimals, value, bounds)
+        self.slider = DoubleSlider(orientation, parent, decimals, value, bounds, log_scale=log_scale)
         self.line_edit = QLineEdit(self.get_str_value())
         self.label = QLabel(name)
 
@@ -138,7 +156,7 @@ class LabeledSlider(QWidget):
 
         self.setFixedHeight(self._HEIGHT)
         self.edit_width = self.fontMetrics().width(
-            ' '.join([' '] * (self._decimals + 4)))
+            ' '.join([' '] * (self._decimals + 4))) + int(self._scientific) * 50
         self.line_edit.setMaximumWidth(self.edit_width)
         self.setMaximumWidth(self._WIDTH_MAX)
 
@@ -169,7 +187,7 @@ class LabeledSlider(QWidget):
             self.slider.setValue(value)
             if value < self._bounds[0] or value > self._bounds[1]:
                 raise ValueError()
-        except ValueError:
+        except (ValueError, OverflowError):
             self.line_edit.setText(self.get_str_value())
             color_animation(self.line_edit)
 
