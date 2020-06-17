@@ -39,6 +39,10 @@ class ImageHolder(QObject):
         self._g_holder.sigTransformed.connect(self._update_image)
 
     @property
+    def current_key(self) -> ImageKey or None:
+        return self._current_key
+
+    @property
     def image(self) -> np.ndarray or None:
         return self._image
 
