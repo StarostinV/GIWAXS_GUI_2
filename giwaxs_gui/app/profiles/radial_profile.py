@@ -4,7 +4,6 @@ from dataclasses import dataclass
 import numpy as np
 
 from ..file_manager import FileManager, ImageKey
-from ..image_holder import ImageHolder
 from .basic_profile import BasicProfile, BaselineParams
 
 
@@ -17,8 +16,8 @@ class SavedProfile:
 
 
 class RadialProfile(BasicProfile):
-    def __init__(self, image_holder: ImageHolder, fm: FileManager, parent=None):
-        self.image_holder: ImageHolder = image_holder
+    def __init__(self, image_holder, fm: FileManager, parent=None):
+        self.image_holder = image_holder
         self.fm = fm
         self._current_key: ImageKey = None
         super().__init__(parent)
