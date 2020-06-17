@@ -39,8 +39,8 @@ class AppDockArea(DockArea):
 
         self.app.image_holder.sigFitOpen.connect(self._open_fit_widget)
 
-    def _open_fit_widget(self, g_fit):
-        fit_widget = FitWidget(g_fit, parent=self.parent())
+    def _open_fit_widget(self, fit_object):
+        fit_widget = FitWidget(fit_object, parent=self.parent())
         fit_widget.sigFitApplyActiveImage.connect(self.app.image_holder.apply_fit)
 
     def _apply_default_view(self):
