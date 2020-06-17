@@ -20,8 +20,18 @@ class BaselineParams:
     asymmetry: float = 0.01
 
 
+@dataclass
+class SavedProfile:
+    raw_data: np.ndarray
+    x: np.ndarray
+    x_range: tuple
+    sigma: float
+    baseline_params: BaselineParams
+    baseline: np.ndarray = None
+
+
 class SmoothedProfile(QObject):
-    sig_sigma_changed = pyqtSignal()
+    sigSigmaChanged = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -64,6 +74,16 @@ class SmoothedProfile(QObject):
             return
         self._sigma = sigma
         self._y = _smooth_data(self._raw_y, self.sigma)
+
+    def to_save(self) -> SavedProfile:
+        return SavedProfile(self.raw_y, self.x, self.x_range, self.sigma, self.baseline_params, self.baseline)
+
+    def from_save(self, saved_profile: SavedProfile) -> None:
+        self.x_range = saved_profile.x_range
+        self.set_data(saved_profile.raw_data, saved_profile.x)
+        self._baseline = saved_profile.baseline
+        self.baseline_params = saved_profile.baseline_params
+        self.set_sigma(saved_profile.sigma)
 
     def set_parameters(self, smoothness: float, asymmetry: float):
         self.baseline_params.smoothness = smoothness
