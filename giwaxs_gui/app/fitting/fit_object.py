@@ -3,6 +3,8 @@ import numpy as np
 from copy import deepcopy
 
 from ..file_manager import ImageKey
+from ..profiles import SavedProfile
+from ..utils import smooth_curve, baseline_correction
 from .background import *
 from .functions import *
 from .fit import Fit
@@ -13,7 +15,9 @@ from .range_strategy import RangeStrategy, RangeStrategyType
 class FitObject(object):
     MINIMAL_NUM: int = 5
 
-    def __init__(self, image_key: ImageKey, polar_image: np.ndarray, r_axis: np.ndarray, phi_axis: np.ndarray):
+    def __init__(self, image_key: ImageKey, polar_image: np.ndarray,
+                 r_axis: np.ndarray, phi_axis: np.ndarray, *, saved_profile: SavedProfile = None,
+                 update_baseline: bool = False):
         self.image_key = image_key
 
         self.polar_image = polar_image
@@ -27,18 +31,58 @@ class FitObject(object):
         self.bounds = self._bounds()
 
         self.fits: Dict[int, Fit] = {}
-        self.name = ''
+        self.name: str = ''
         self.is_fitted: bool = False
+        self.saved_profile: SavedProfile or None = None
 
         self.default_fitting: FittingFunction.__class__ = Gaussian
         self.default_background: Background.__class__ = LinearBackground
         self.default_range_strategy: RangeStrategy = RangeStrategy()
 
+        if saved_profile:
+            self.set_profile(saved_profile, update_baseline)
+
+    def set_profile(self, saved_profile: SavedProfile, update_baseline: bool = False):
+        if np.any(saved_profile.x != self.r_axis):
+            return
+
+        self.saved_profile = saved_profile
+
+        if update_baseline:
+            self.update_baseline()
+        else:
+            self.r_profile = smooth_curve(saved_profile.raw_data, saved_profile.sigma)
+            if saved_profile.baseline is not None:
+                self.r_profile = self.r_profile - saved_profile.baseline
+
+        self.update_fit_data(update_r_range=False, update_fit=True)
+
+    def update_baseline(self):
+        if self.saved_profile:
+            self.saved_profile.x = self.r_axis
+            r1, r2 = self.saved_profile.x_range
+            x1, x2 = self._get_r_coords(r1), self._get_r_coords(r2)
+            self.saved_profile.raw_data = self.polar_image.sum(axis=0)
+            self.r_profile = smooth_curve(self.saved_profile.raw_data, self.saved_profile.sigma)
+
+            baseline = np.zeros_like(self.r_profile)
+
+            baseline[x1:x2] = baseline_correction(
+                self.r_profile[x1:x2], self.saved_profile.baseline_params.smoothness,
+                self.saved_profile.baseline_params.asymmetry)
+
+            self.saved_profile.baseline = baseline
+            self.r_profile = self.r_profile - baseline
+            self.update_fit_data(update_r_range=False, update_fit=True)
+
+    def clear_profile(self):
+        self.saved_profile = None
+        self.r_profile = self.polar_image.sum(axis=0)
+
     def add_fit(self, fit: Fit):
         self.fits[fit.roi.key] = fit
         update_r_range = fit.range_strategy.strategy_type == RangeStrategyType.adjust
-        self.update_fit_data(fit, update_r_range)
-        fit.update_fit()
+        self.update_fit_data(fit, update_r_range, update_fit=True)
 
     def new_fit(self, roi: Roi):
         r1, r2 = self._get_r_range(roi, self.default_range_strategy.range_factor)
@@ -68,13 +112,23 @@ class FitObject(object):
 
         return fit
 
-    def update_fit_data(self, fit: Fit, update_r_range: bool = True):
+    def update_fit_data(self, fit: Fit = None, update_r_range: bool = True, *, update_fit: bool = False, **kwargs):
+        if fit:
+            self._update_fit_data(fit, update_r_range, update_fit=update_fit, **kwargs)
+        else:
+            for fit in self.fits.values():
+                self._update_fit_data(fit, update_r_range, update_fit=update_fit, **kwargs)
+
+    def _update_fit_data(self, fit: Fit, update_r_range: bool = True, *, update_fit: bool = False, **kwargs):
         if update_r_range:
             fit.r_range = r1, r2 = self._get_r_range(fit.roi, fit.range_strategy.range_factor)
         else:
             r1, r2 = fit.r_range
         x1, x2 = self._get_r_coords(r1), self._get_r_coords(r2)
         fit.x, fit.y = self._get_x_y(fit.roi, x1, x2)
+
+        if update_fit:
+            fit.update_fit(**kwargs)
 
     def remove_fit(self, fit: Fit):
         try:
@@ -92,8 +146,7 @@ class FitObject(object):
                 if fit.range_strategy.is_default:
                     fit.range_strategy = deepcopy(range_strategy)
                     if update:
-                        self.update_fit_data(fit)
-                        fit.update_fit()
+                        self.update_fit_data(fit, update_fit=True)
 
     def set_background(self, background_type: BackgroundType, fit: Fit = None, update: bool = True):
         background = BACKGROUNDS[background_type]
