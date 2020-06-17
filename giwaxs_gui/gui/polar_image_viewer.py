@@ -31,7 +31,7 @@ class PolarImageViewer(AbstractRoiHolder, QMainWindow):
         self.setCentralWidget(self._image_viewer)
         self.app.image_holder.sigPolarImageChanged.connect(self._update_image)
         self.app.geometry_holder.sigScaleChanged.connect(self._on_scale_changed)
-        self.app.image_holder.sigEmptyImage.connect(self._image_viewer.clear)
+        self.app.image_holder.sigEmptyImage.connect(self._image_viewer.clear_image)
         # self.app.roi_dict.sig_roi_moved.connect(self._image_viewer.set_auto_range)
 
         self.__init_toolbar()

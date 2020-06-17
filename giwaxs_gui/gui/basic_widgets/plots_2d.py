@@ -72,8 +72,8 @@ class CustomImageViewer(GraphicsLayoutWidget):
     def hist_params(self) -> dict:
         return dict(sigma_factor=self._sigma_factor, hist_range=self._hist_range)
 
-    def clear(self):
-        self.image_item.clear()
+    def clear_image(self):
+        self.set_data(np.zeros((1, 1)))
 
     def set_default_range(self):
         if self.image_item.image is None:

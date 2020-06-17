@@ -56,7 +56,7 @@ class GiwaxsImageViewer(AbstractRoiHolder, CustomImageViewer):
         self.app.geometry_holder.sigScaleChanged.connect(self._on_scale_changed)
         self.app.geometry_holder.sigBeamCenterChanged.connect(self._on_beam_center_changed)
         self.app.image_holder.sigImageChanged.connect(self._on_image_changed)
-        self.app.image_holder.sigEmptyImage.connect(self.clear)
+        self.app.image_holder.sigEmptyImage.connect(self.clear_image)
 
     def _on_scale_changed(self):
         scale = self.app.geometry.scale
