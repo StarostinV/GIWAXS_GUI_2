@@ -35,7 +35,7 @@ class GIWAXSMainWindow(QMainWindow):
         self.setWindowIcon(Icon('window_icon'))
         self.setMinimumSize(*self._MinimumSize)
         self.setWindowState(Qt.WindowMaximized)
-        self.set_style()
+        self.set_style(self.app.fm.config['style'])
         self.init_window = None
 
         if not self.app.fm.project_opened:
