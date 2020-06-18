@@ -15,6 +15,7 @@ from .range_strategy import RangeStrategyType, RangeStrategy
 @dataclass
 class Fit:
     roi: Roi
+
     r_range: Tuple[float, float]
     x_range: Tuple[int, int]
     x: np.ndarray

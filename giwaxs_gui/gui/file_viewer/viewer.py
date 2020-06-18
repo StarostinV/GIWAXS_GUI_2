@@ -7,7 +7,7 @@ from PyQt5.QtCore import Qt
 
 from ..basic_widgets import RoundedPushButton
 from ..tools import Icon, get_folder_filepath, get_image_filepath
-from ...app.file_manager import FileManager, ImageKey, FolderKey, GLOB_IMAGE_FORMATS
+from ...app.file_manager import FileManager, ImageKey, FolderKey
 
 
 class FileModel(QStandardItemModel):
