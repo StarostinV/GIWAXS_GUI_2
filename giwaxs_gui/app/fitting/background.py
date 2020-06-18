@@ -22,6 +22,8 @@ class Background(object):
 
     is_default: bool = True
 
+    AMP_PADDING: float = 1.3
+
     @staticmethod
     @abstractmethod
     def _bounds(x: np.ndarray, y: np.ndarray) -> tuple:
@@ -55,7 +57,7 @@ class ConstantBackground(Background):
         return params[-1] * np.ones_like(x)
 
     def amp_bounds(self, x: np.ndarray, y: np.ndarray, params: list) -> tuple:
-        amp = max(y.max() - params[0], 0)
+        amp = y.max() * self.AMP_PADDING - params[0]
         return amp, max(y.max(), amp), min(amp, 0)
 
 
@@ -76,7 +78,7 @@ class LinearBackground(Background):
         return params[-2] * x + params[-1]
 
     def amp_bounds(self, x: np.ndarray, y: np.ndarray, params: list) -> tuple:
-        amp = y.max() - (y[0] + y[-1]) / 2
+        amp = y.max() * self.AMP_PADDING - (y[0] + y[-1]) / 2
         return amp, max(y.max(), amp), min(amp, 0)
 
 
