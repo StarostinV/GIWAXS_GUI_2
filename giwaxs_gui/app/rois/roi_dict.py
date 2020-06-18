@@ -339,9 +339,6 @@ class RoiDict(QObject):
         else:
             rois = deepcopy(list(self.values()))
         if rois:
-            for roi in rois:
-                roi.active = False
-                roi.movable = True
             self.sigFitRoisOpen.emit(rois)
 
     def apply_fit(self, rois: List[Roi], image_key: ImageKey):
