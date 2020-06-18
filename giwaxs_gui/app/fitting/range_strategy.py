@@ -9,6 +9,6 @@ class RangeStrategyType(Enum):
 
 @dataclass
 class RangeStrategy:
-    range_factor: float = 2
+    range_factor: float = 0
     strategy_type: RangeStrategyType = RangeStrategyType.adjust
     is_default: bool = True
