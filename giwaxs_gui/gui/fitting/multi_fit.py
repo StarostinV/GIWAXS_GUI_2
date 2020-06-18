@@ -7,7 +7,7 @@ from copy import deepcopy
 from PyQt5.QtCore import (QObject, pyqtSlot, pyqtSignal,
                           QCoreApplication, Qt, QThread)
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QPushButton,
-                             QProgressBar, QSlider, QLabel)
+                             QProgressBar, QSlider, QLabel, QMessageBox)
 
 from pyqtgraph import GraphicsLayoutWidget, FillBetweenItem, InfiniteLine
 
@@ -15,7 +15,7 @@ from ...app import App, Roi, RoiData
 from ...app.file_manager import ImageKey, FolderKey
 from ...app.fitting import FitObject, Fit
 
-from ..tools import get_pen, center_widget
+from ..tools import get_pen, center_widget, Icon
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class MultiFit(QObject):
     def __init__(self, fm_multi_fit, parent=None):
         super().__init__(parent=parent)
         self.sleep_time: float = 0.002
-        self._paused: bool = False
+        self._paused: bool = True
         self._stopped: bool = False
         self.fm_multi_fit = fm_multi_fit
 
@@ -249,9 +249,11 @@ class MultiFitWindow(QWidget):
         if key == self.current_fit.image_key:
             return
 
+        add_fits: bool = self.current_fit.image_key.idx + 1 == key.idx if self.current_fit else False
+
         self.save_current_fit()
-        self.current_fit = self.fm[key] or get_new_fit(
-            self.current_fit, new_image_key=key)
+        self.current_fit = get_new_fit(
+            self.current_fit, saved_fit=self.fm[key], new_image_key=key, add_fits=add_fits)
         self.plot_params.change_image(key)
 
         if (self.control_button.text() == ButtonStates.finished.value and
@@ -273,12 +275,21 @@ class MultiFitWindow(QWidget):
             self.plot_params.delete_roi(roi, self.current_fit.image_key.idx)
 
     def save_fits(self, image_keys: list):
+        self.log.info(f'Saving {len(image_keys)} fits ...')
         if not self.multi_fit.is_paused:
+            msg_box = QMessageBox()
+            msg_box.setWindowTitle('Saving fits')
+            msg_box.setWindowIcon(Icon('error'))
+            msg_box.setText("Please, stop the auto fitting process before saving the images.")
+            msg_box.setDefaultButton(QMessageBox.Close)
+            msg_box.exec()
             return
         widget = SaveProgressWidget(len(image_keys), parent=self)
-        self.multi_fit.sigSaved.connect(widget.set_progress)
-        self.multi_fit.sigSavedFinished.connect(widget.finished)
-        self.sigRunSave.emit(image_keys)
+
+        if image_keys:
+            self.multi_fit.sigSaved.connect(widget.set_progress)
+            self.multi_fit.sigSavedFinished.connect(widget.finished)
+            self.sigRunSave.emit(image_keys)
 
     @pyqtSlot(name='fitPaused')
     def on_paused(self):
@@ -481,7 +492,7 @@ class ProgressWidget(QWidget):
         layout = QVBoxLayout(self)
         self.progress_bar = QProgressBar(self)
         self.slider = QSlider(orientation=Qt.Horizontal, parent=self)
-        self.label = QLabel(self.current_key.name)
+        self.label = QLabel(self._label_text())
 
         self.progress_bar.setMaximum(self.folder_key.images_num - 1)
         self.slider.setMaximum(self.folder_key.images_num - 1)
@@ -503,7 +514,7 @@ class ProgressWidget(QWidget):
     @pyqtSlot(int, name='sliderMoved')
     def _on_slider_moved(self, value: int):
         image_key = self.folder_key.image_by_key(value)
-        self.label.setText(image_key.name)
+        self.label.setText(self._label_text())
         if image_key and image_key != self.current_key:
             self.current_key = image_key
             self.sigImageChanged.emit(image_key)
@@ -512,8 +523,11 @@ class ProgressWidget(QWidget):
     def change_image(self, image_key: ImageKey):
         self.current_key = image_key
         self.progress_bar.setValue(image_key.idx)
-        self.label.setText(image_key.name)
+        self.label.setText(self._label_text())
         self.slider.setValue(image_key.idx)
+
+    def _label_text(self):
+        return f'Image {self.current_key.idx}: {self.current_key.name}'
 
 
 class SaveProgressWidget(QWidget):
@@ -539,6 +553,11 @@ class SaveProgressWidget(QWidget):
         layout.addWidget(self.progress)
         layout.addWidget(self.close_button)
         self.close_button.hide()
+
+        if not num:
+            self.progress.setMaximum(1)
+            self.progress.setValue(1)
+            self.finished()
 
     @pyqtSlot(int, name='setProgress')
     def set_progress(self, value: int):
