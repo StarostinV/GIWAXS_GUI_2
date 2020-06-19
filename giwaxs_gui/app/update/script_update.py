@@ -4,9 +4,9 @@ import logging
 import argparse
 
 
-def update_package(version: str = '', num_of_attempts: int = 3) -> bool:
+def update_package(version: str = '', num_of_attempts: int = 2) -> bool:
     logger = logging.getLogger(__name__)
-    logger.info(f'Updating the package ...')
+    logger.info(f'Updating the package to {version}...')
 
     try:
         subprocess.check_call(['giwaxs_gui_update', f'--version={version}',
@@ -23,7 +23,7 @@ def giwaxs_gui_update() -> int:
     parser = argparse.ArgumentParser(description='Update giwaxs_gui package.')
 
     parser.add_argument('--version', type=str, default='', help='the target version')
-    parser.add_argument('--num_of_attempts', type=int, default=3, help='number of attempts to update')
+    parser.add_argument('--num_of_attempts', type=int, default=2, help='number of attempts to update')
     parser.add_argument('--package', type=str, default='giwaxs_gui', help='the target package')
 
     args = parser.parse_args()
@@ -37,6 +37,14 @@ def giwaxs_gui_update() -> int:
     for i in range(num_of_attempts):
         try:
             subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--user', '--upgrade', package])
+            return 0
+
+        except subprocess.CalledProcessError:
+            continue
+
+    for i in range(num_of_attempts):
+        try:
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', package])
             return 0
 
         except subprocess.CalledProcessError:
