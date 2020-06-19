@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-import logging
 
-from giwaxs_gui import run
+from giwaxs_gui import main
 
 
 if __name__ == '__main__':
-    level = logging.ERROR
-    run(level)
+    main()

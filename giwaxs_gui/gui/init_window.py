@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (QWidget, QPushButton, QGridLayout,
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 
 from .tools import center_widget, show_error, Icon, color_animation
+from ..__version import __version__
 
 
 class InitWindow(QWidget):
@@ -19,23 +20,26 @@ class InitWindow(QWidget):
 
     log = logging.getLogger(__name__)
 
-    def __init__(self, recent_projects: List[Path] = None):
+    def __init__(self,
+                 recent_projects: List[Path] = None,
+                 is_updated: bool = False):
         flags = Qt.WindowFlags()
         flags |= Qt.FramelessWindowHint
         super().__init__(flags=flags)
+
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setWindowTitle('GIWAXS analysis')
         self.setWindowIcon(Icon('window_icon'))
         self.project_name: str = 'untitled'
         self.project_path: Path = Path('~/GIWAXS projects').expanduser().resolve() / self.project_name
 
-        self.__init_ui(recent_projects)
+        self.__init_ui(recent_projects, is_updated)
         self.setFixedWidth(600)
         self.setFixedHeight(400)
         center_widget(self)
         self.show()
 
-    def __init_ui(self, recent_projects: List[Path] or None):
+    def __init_ui(self, recent_projects: List[Path] or None, is_updated: bool = False):
         layout = QGridLayout(self)
         layout.setContentsMargins(40, 20, 40, 40)
         self.file_line = QLineEdit(str(self.project_path), self)
@@ -47,7 +51,12 @@ class InitWindow(QWidget):
         self.create_button = QPushButton(f'Create project "{self.project_name}"', self)
         self.create_button.clicked.connect(self._create)
 
-        title = QLabel('GIWAXS analysis')
+        if is_updated:
+            title = f'GIWAXS analysis. Updated to the latest version {__version__}!'
+        else:
+            title = f'GIWAXS analysis (version {__version__})'
+
+        title = QLabel(title, self)
         font = title.font()
         font.setWeight(72)
         title.setFont(font)

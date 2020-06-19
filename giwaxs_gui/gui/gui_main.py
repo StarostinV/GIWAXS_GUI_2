@@ -1,31 +1,92 @@
 from pathlib import Path
+import logging
 
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QSizePolicy,
                              QApplication, QShortcut, QMessageBox,
                              QFileDialog)
-from PyQt5.QtCore import Qt, pyqtSlot
+from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal,
+                          QObject, QThreadPool)
 from PyQt5.QtGui import QKeySequence
 
 import qdarkstyle
 import qdarkgraystyle
 
 from ..app import App
+from ..app.update import CheckVersionMessage, check_outdated, update_package
+from ..app.utils import Worker
+from ..__version import __version__
+
 from .dock_area import AppDockArea
 from .basic_widgets import ToolBar
 from .tools import Icon, get_image_filepath, get_folder_filepath, save_file_dialog
 
 from .init_window import InitWindow
+from .debug_widgets import DebugWindow
+from .exception_message import UncaughtHook
+
+
+class GIWAXSMainController(QObject):
+    EXIT_CODE_REBOOT: int = -123456789
+
+    log = logging.getLogger(__name__)
+
+    def __init__(self):
+        super().__init__()
+        self.app = App()
+
+        if self.app.fm.config['is_updated']:
+            is_updated = True
+            del self.app.fm.config['is_updated']
+        else:
+            is_updated = False
+
+        self.main_window = GIWAXSMainWindow(is_updated)
+
+        self.main_window.sigCloseApp.connect(self.close_app)
+        self.main_window.sigRestartApp.connect(self.restart_app)
+        self.main_window.sigRestartAfterUpdate.connect(self.restart_after_update)
+
+        if self.log.level <= logging.DEBUG:
+            self.debug_window = DebugWindow()
+        self.exception_hook = UncaughtHook()
+
+        self.log.info(f'{"*" * 10}')
+        self.log.info(f'Starting GIWAXS analysis {__version__}!')
+        self.log.info(f'{"*" * 10}')
+
+    def restart_after_update(self):
+        self.app.fm.config['is_updated'] = True
+        self.restart_app()
+
+    def restart_app(self):
+        self.app.close()
+        q_app = QApplication.instance()
+        App._instance = None
+        q_app.exit(self.EXIT_CODE_REBOOT)
+
+    def close_app(self):
+        self.app.close()
+        q_app = QApplication.instance()
+        App._instance = None
+        q_app.exit(0)
 
 
 class GIWAXSMainWindow(QMainWindow):
     _MinimumSize = (500, 500)
 
-    def __init__(self, parent=None):
+    sigCloseApp = pyqtSignal()
+    sigRestartApp = pyqtSignal()
+    sigRestartAfterUpdate = pyqtSignal()
+
+    def __init__(self, is_updated: bool, parent=None):
         super(GIWAXSMainWindow, self).__init__(parent=parent)
+        self.__closing: bool = False
         self.app = App()
         self._init_toolbar()
         self._init_shortcuts()
         self._init_menubar()
+
+        self.q_thead_pool = QThreadPool(self)
 
         self.dock_area = AppDockArea(self)
         self.app.fm.sigProjectClosed.connect(self.update_window_title)
@@ -39,20 +100,73 @@ class GIWAXSMainWindow(QMainWindow):
         self.init_window = None
 
         if not self.app.fm.project_opened:
-            self.open_init_window()
+            self.open_init_window(is_updated)
         else:
             self.show()
+        if not is_updated:
+            self.check_update()
 
-    def open_init_window(self):
-        self.init_window = InitWindow(self.app.fm.recent_projects)
+    def check_update(self):
+        worker = Worker(check_outdated, version=__version__)
+        worker.autoDelete()
+        worker.signals.result.connect(self._version_checked)
+        self.q_thead_pool.start(worker)
+
+    def update_package(self, target_version: str = ''):
+        worker = Worker(update_package, version=target_version)
+        worker.autoDelete()
+        worker.signals.result.connect(self._package_updated)
+        self.q_thead_pool.start(worker)
+
+    @pyqtSlot(object, name='versionChecked')
+    def _version_checked(self, res: CheckVersionMessage):
+        if res.value == CheckVersionMessage.new_version_available.value:
+            try:
+                self.update_package(res.version)
+            except AttributeError:
+                return
+
+    @pyqtSlot(object, name='packageUpdated')
+    def _package_updated(self, is_updated: bool):
+        if is_updated:
+            msg_box = QMessageBox(self)
+            msg_box.setWindowIcon(Icon('window_icon'))
+            msg_box.setWindowTitle('Restart app')
+            msg_box.setText('The program was updated. You have to restart if to apply changes. '
+                            'Do you want to restart now? All the data will be saved.')
+            restart_btn = msg_box.addButton('Restart', QMessageBox.YesRole)
+            msg_box.addButton(QMessageBox.Cancel)
+            msg_box.setDefaultButton(restart_btn)
+            ret = msg_box.exec()
+
+            if msg_box.clickedButton() == restart_btn:
+                self._closing = True
+                self.sigRestartAfterUpdate.emit()
+        else:
+            msg_box = QMessageBox(self)
+            msg_box.setWindowIcon(Icon('error'))
+            msg_box.setWindowTitle('Update failed')
+            msg_box.setText('The new version available. Consider updating the program manually with: \n'
+                            '>>> pip install --user --upgrade giwaxs_gui\n'
+                            'New updates fix critical bugs and add useful features for analysis.')
+            msg_box.setStandardButtons(QMessageBox.Ok)
+            msg_box.exec()
+
+    def open_init_window(self, is_updated: bool):
+        self.init_window = InitWindow(self.app.fm.recent_projects, is_updated)
         self.init_window.sigOpenProject.connect(self._on_opening_project)
-        self.init_window.sigExit.connect(self.close)
+        self.init_window.sigExit.connect(self._close_from_init)
 
     def update_window_title(self):
         if self.app.fm.project_opened:
             self.setWindowTitle(f'{self.app.fm.project_name} - GIWAXS analysis')
         else:
             self.setWindowTitle('GIWAXS analysis')
+
+    @pyqtSlot(name='exitFromInitWindow')
+    def _close_from_init(self):
+        self._closing = True
+        self.sigCloseApp.emit()
 
     @pyqtSlot(object, name='NewProject')
     def _on_opening_project(self, path: Path):
@@ -71,10 +185,6 @@ class GIWAXSMainWindow(QMainWindow):
         folder = Path(folder)
         if folder.is_dir():
             self._on_opening_project(folder)
-
-    @pyqtSlot(name='newRealTime')
-    def _new_real_time(self):
-        pass
 
     @pyqtSlot(name='addExSitu')
     def _add_file_dialog(self):
@@ -102,13 +212,17 @@ class GIWAXSMainWindow(QMainWindow):
         recent_projects_menu = self.file_menu.addMenu('Recent projects')
 
         for project_path in self.app.fm.recent_projects:
-            recent_projects_menu.addAction(project_path.name, lambda *x, p=project_path:
-                                           self._on_opening_project(p))
+            recent_projects_menu.addAction(
+                project_path.name, lambda *x, p=project_path: self._on_opening_project(p))
 
-        # Save menu
+        # Save
 
         self.save_menu = self.file_menu.addMenu('Save project as ...')
         self.save_menu.addAction('Save as h5 file', self._save_as_h5)
+
+        # Restart
+
+        self.file_menu.addAction('Restart', lambda *x: self.restart())
 
         # Data menu
 
@@ -201,19 +315,23 @@ class GIWAXSMainWindow(QMainWindow):
 
         self.app.fm.config['style'] = name
 
-    def close(self):
-        self.app.close()
-        qapp = QApplication.instance()
-        qapp.closeAllWindows()
+    @pyqtSlot(name='restartApp')
+    def restart(self):
+        self.__closing = True
+        self.sigRestartApp.emit()
 
     def closeEvent(self, a0) -> None:
-        reply = QMessageBox.question(self, 'Message',
-                                     "Are you sure to quit? The project will be saved.",
-                                     QMessageBox.Yes |
-                                     QMessageBox.No, QMessageBox.No)
-
-        if reply == QMessageBox.Yes:
-            a0.accept()
-            self.close()
+        if self.__closing:
+            super().closeEvent(a0)
         else:
-            a0.ignore()
+            reply = QMessageBox.question(self, 'Message',
+                                         "Are you sure to quit? The project will be saved.",
+                                         QMessageBox.Yes |
+                                         QMessageBox.No, QMessageBox.No)
+
+            if reply == QMessageBox.Yes:
+                a0.accept()
+                self.__closing = True
+                self.sigCloseApp.emit()
+            else:
+                a0.ignore()
