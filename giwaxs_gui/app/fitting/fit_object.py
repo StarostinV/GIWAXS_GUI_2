@@ -60,7 +60,7 @@ class FitObject(object):
     def update_baseline(self):
         if self.saved_profile:
             self.saved_profile.x = self.r_axis
-            r1, r2 = self.saved_profile.x_range
+            r1, r2 = self.saved_profile.x_range or self.r_axis[0], self.r_axis[-1]
             x1, x2 = self._get_r_coords(r1), self._get_r_coords(r2)
             self.saved_profile.raw_data = self.polar_image.sum(axis=0)
             self.r_profile = smooth_curve(self.saved_profile.raw_data, self.saved_profile.sigma)
