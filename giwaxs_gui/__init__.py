@@ -40,6 +40,8 @@ def main():
 
     if exit_code == GIWAXSMainController.EXIT_CODE_REBOOT:
         subprocess.Popen('giwaxs_gui', creationflags=subprocess.DETACHED_PROCESS)
+        return 0
+
     return exit_code
 
 
