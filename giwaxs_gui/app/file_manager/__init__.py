@@ -25,6 +25,7 @@ class FileManager(QObject):
     sigActiveImageChanged = pyqtSignal(object)
     sigProjectClosed = pyqtSignal()
     sigProjectIsClosing = pyqtSignal()
+    sigProjectOpened = pyqtSignal()
     sigNewFolder = pyqtSignal(object)
     sigNewFile = pyqtSignal(object)
 
@@ -68,6 +69,7 @@ class FileManager(QObject):
             return
         self.close_project()
         self._init_project(path)
+        self.sigProjectOpened.emit()
 
     def add_root_path_to_project(self, path: Path):
         if not self.project_opened:
