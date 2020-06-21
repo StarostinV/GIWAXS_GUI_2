@@ -14,7 +14,7 @@ class RoiMetaData(object):
     def __init__(self, folder_key: FolderKey, *,
                  names: Dict[int, str] = None, groups: Dict[int, str] = None):
 
-        self.folder_key = folder_key
+        self.folder_key = folder_key.clean_copy()
         self.names: Dict[int, str] = names or {}
         self.groups: Dict[int, str] = groups or {}
         self.keys: Dict[int, Set[ImageKey]] = defaultdict(set)

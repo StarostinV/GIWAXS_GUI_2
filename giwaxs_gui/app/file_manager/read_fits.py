@@ -2,6 +2,7 @@ from datetime import datetime as dt
 from pathlib import Path
 
 from .object_file_manager import _ObjectFileManager
+from .keys import RemoveWeakrefs
 
 # TODO save fits to h5
 
@@ -63,9 +64,8 @@ class MultiFitFileManager(_ObjectFileManager):
             return fit_object
 
     def __setitem__(self, key, value):
-        value.image_key = None
-        super().__setitem__(key, value)
-        value.image_key = key
+        with RemoveWeakrefs(value.image_key):
+            super().__setitem__(key, value)
 
     def delete(self):
         for path in self.folder.iterdir():

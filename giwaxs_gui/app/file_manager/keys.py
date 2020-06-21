@@ -1,9 +1,10 @@
 import logging
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Union
 import re
 import weakref
 from abc import abstractmethod
+from copy import deepcopy
 
 from ..read_image import read_image
 
@@ -57,11 +58,13 @@ class AbstractKey(object):
         return
 
     @property
-    def parent(self):
+    def parent(self) -> 'AbstractKey' or None:
         return self._parent() if self._parent else None
 
-    def remove_parent(self):
+    def remove_parent(self) -> 'AbstractKey' or None:
+        parent = self.parent
         self._parent = None
+        return parent
 
     def set_parent(self, parent: 'AbstractKey'):
         self._parent = weakref.ref(parent)
@@ -108,6 +111,17 @@ class FolderKey(AbstractKey):
     def clear(self):
         self._image_children: List[ImageKey] = []
         self._folder_children: List[FolderKey] = []
+
+    def detach_subfolders(self) -> List['FolderKey']:
+        subfolders, self._folder_children = self._folder_children, []
+        return subfolders
+
+    def attach_subfolders(self, subfolders):
+        self._folder_children = subfolders
+
+    def clean_copy(self):
+        with RemoveWeakrefs(self, restore=True, remove_subfolders=True):
+            return deepcopy(self)
 
     def image_idx(self, key: 'ImageKey'):
         try:
@@ -348,3 +362,66 @@ class ImageH5Key(ImageKey, H5Key):
         except Exception as err:
             logger.exception(err)
             return False
+
+
+class RemoveWeakrefs(object):
+    def __init__(self, key: Union[FolderKey, ImageKey], *,
+                 remove_subfolders: bool = False,
+                 restore: bool = True):
+        self.__key = key
+        self.__parent = None
+        self.__remove_subfolders: bool = remove_subfolders
+        self.__restore: bool = restore
+        self.__subfolders: List[FolderKey] = []
+
+    def __enter__(self):
+        if self.__remove_subfolders:
+            try:
+                self.__subfolders = self.__key.detach_subfolders()
+            except AttributeError:
+                self.__remove_subfolders = False
+        self.__parent = self.remove(self.__key)
+        return self.__key
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.__restore:
+            self.restore(self.__key, self.__parent)
+
+            if self.__remove_subfolders:
+                self.__key.attach_subfolders(self.__subfolders)
+        self.__subfolders = []
+        self.__parent = None
+
+    @staticmethod
+    def restore(key: Union[FolderKey, ImageKey], parent: FolderKey = None) -> None:
+        if parent:
+            key.set_parent(parent)
+        if isinstance(key, FolderKey):
+            _restore_parents(key, parent)
+
+    @staticmethod
+    def remove(key: Union[FolderKey, ImageKey]) -> FolderKey or None:
+        if isinstance(key, FolderKey):
+            _remove_parents(key)
+        return key.remove_parent()
+
+
+def _remove_parents(key: FolderKey):
+    for image_key in key.image_children:
+        image_key.remove_parent()
+
+    for folder_key in key.folder_children:
+        folder_key.remove_parent()
+        _remove_parents(folder_key)
+
+
+def _restore_parents(key: FolderKey, parent: FolderKey = None):
+    if parent:
+        key.set_parent(parent)
+
+    for image_key in key.image_children:
+        image_key.set_parent(key)
+
+    for folder_key in key.folder_children:
+        folder_key.set_parent(folder_key)
+        _restore_parents(folder_key)

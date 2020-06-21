@@ -3,10 +3,9 @@ from dataclasses import dataclass
 from collections import defaultdict
 import logging
 from pathlib import Path
-from typing import Dict
 
 from .keys import (AbstractKey, FolderKey, FolderH5Key, FolderPathKey,
-                   ImageKey, ImagePathKey, H5_FORMAT,
+                   ImageKey, ImagePathKey, H5_FORMAT, RemoveWeakrefs,
                    AVAILABLE_IMAGE_FORMATS)
 
 
@@ -96,11 +95,9 @@ class ProjectStructure(object):
 
     def save(self, restore: bool = True):
         if self.path and self.root and self.path.is_dir():
-            _remove_parents(self.root)
-            with open(str(self.path.resolve() / 'project_structure'), 'wb') as f:
-                pickle.dump(self.root, f)
-            if restore:
-                _set_parents(self.root)
+            with RemoveWeakrefs(self.root, restore=restore):
+                with open(str(self.path.resolve() / 'project_structure'), 'wb') as f:
+                    pickle.dump(self.root, f)
 
     def open_project(self, path: Path):
         self.close_project()
@@ -118,7 +115,7 @@ class ProjectStructure(object):
             try:
                 with open(str(pickle_file.resolve()), 'rb') as f:
                     self._root = pickle.load(f)
-                _set_parents(self._root)
+                RemoveWeakrefs.restore(self._root)
             except Exception as err:
                 pickle_file.unlink()
                 self.log.exception(err)
@@ -134,19 +131,3 @@ class ProjectStructure(object):
         self._root = None
         self.path = None
         self.config = defaultdict(lambda: False)
-
-
-def _remove_parents(key: FolderKey):
-    for folder in key.folder_children:
-        folder.remove_parent()
-        _remove_parents(folder)
-    for image in key.image_children:
-        image.remove_parent()
-
-
-def _set_parents(key: FolderKey):
-    for folder in key.folder_children:
-        folder.set_parent(key)
-        _set_parents(folder)
-    for image in key.image_children:
-        image.set_parent(key)

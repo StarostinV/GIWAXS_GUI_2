@@ -6,7 +6,7 @@ from h5py import File, Group
 
 from PyQt5.QtCore import pyqtSignal, QObject
 
-from .keys import (FolderKey, FolderH5Key, FolderPathKey,
+from .keys import (FolderKey, FolderH5Key, FolderPathKey, RemoveWeakrefs,
                    ImageKey, ImageH5Key, ImagePathKey, InvalidKey,
                    PROJECT_KEY, IMAGE_PROJECT_KEY, GLOB_IMAGE_FORMATS)
 
