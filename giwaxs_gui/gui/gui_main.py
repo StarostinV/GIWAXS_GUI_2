@@ -23,6 +23,9 @@ from .tools import Icon, get_image_filepath, get_folder_filepath, save_file_dial
 from .init_window import InitWindow
 from .debug_widgets import DebugWindow
 from .exception_message import UncaughtHook
+from .notifications import (PopUpWrapper, NotificationTypes,
+                            CheckingVersion, AskRestart, UpdatingProgram,
+                            UpdateFailed, get_check_result_notification)
 
 
 class GIWAXSMainController(QObject):
@@ -35,16 +38,13 @@ class GIWAXSMainController(QObject):
         self.app = App()
 
         if self.app.fm.config['is_updated']:
-            is_updated = True
+            self.is_updated = True
             del self.app.fm.config['is_updated']
         else:
-            is_updated = False
+            self.is_updated = False
 
-        self.main_window = GIWAXSMainWindow(is_updated)
-
-        self.main_window.sigCloseApp.connect(self.close_app)
-        self.main_window.sigRestartApp.connect(self.restart_app)
-        self.main_window.sigRestartAfterUpdate.connect(self.restart_after_update)
+        self.init_window = None
+        self.main_window = None
 
         if self.log.level <= logging.DEBUG:
             self.debug_window = DebugWindow()
@@ -53,30 +53,86 @@ class GIWAXSMainController(QObject):
         self.log.info(f'{"*" * 10}')
         self.log.info(f'Starting GIWAXS analysis {__version__}!')
         self.log.info(f'{"*" * 10}')
+        self.set_style(self.app.fm.config['style'] or 'Gray Dark')
+        self.open_init_window()
 
+    def open_main_window(self):
+        self.main_window = GIWAXSMainWindow(self.is_updated)
+
+        self.main_window.sigCloseApp.connect(self.close_app)
+        self.main_window.sigRestartApp.connect(self.restart_app)
+        self.main_window.sigRestartAfterUpdate.connect(self.restart_after_update)
+        self.main_window.sigOpenProject.connect(self.open_new_project)
+        self.main_window.sigCloseProject.connect(self.close_project)
+        self.main_window.sigSetStyle.connect(self.set_style)
+
+    def open_init_window(self):
+        self.init_window = InitWindow(self.app.fm.recent_projects, self.is_updated)
+        self.init_window.sigOpenProject.connect(self.open_new_project)
+        self.init_window.sigExit.connect(self.close_app)
+
+    @pyqtSlot(name='closeProject')
+    def close_project(self):
+        self.app.fm.close_project()
+        self.main_window.hide()
+        self.open_init_window()
+
+    @pyqtSlot(object, name='NewProject')
+    def open_new_project(self, path: Path):
+        if self.init_window:
+            self.init_window.close()
+            self.init_window = None
+        if not self.main_window:
+            self.open_main_window()
+        else:
+            self.main_window.show()
+        self.app.fm.open_project(path)
+
+    @pyqtSlot(name='restartAppAfterUpdate')
     def restart_after_update(self):
         self.app.fm.config['is_updated'] = True
         self.restart_app()
 
+    @pyqtSlot(name='restartApp')
     def restart_app(self):
         self.app.close()
         q_app = QApplication.instance()
         App._instance = None
         q_app.exit(self.EXIT_CODE_REBOOT)
 
+    @pyqtSlot(name='closeApp')
     def close_app(self):
         self.app.close()
         q_app = QApplication.instance()
         App._instance = None
         q_app.exit(0)
 
+    @pyqtSlot(str, name='setStyle')
+    def set_style(self, name: str = 'Gray Dark'):
+        q_app = QApplication.instance()
+        if not q_app:
+            raise RuntimeError('No running application found.')
+        if name == 'Dark':
+            q_app.setStyleSheet('')
+            q_app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
+        elif name == 'Gray Dark':
+            q_app.setStyleSheet('')
+            q_app.setStyleSheet(qdarkgraystyle.load_stylesheet_pyqt5())
+        else:
+            return
+
+        self.app.fm.config['style'] = name
+
 
 class GIWAXSMainWindow(QMainWindow):
     _MinimumSize = (500, 500)
 
     sigCloseApp = pyqtSignal()
+    sigOpenProject = pyqtSignal(object)
+    sigCloseProject = pyqtSignal()
     sigRestartApp = pyqtSignal()
     sigRestartAfterUpdate = pyqtSignal()
+    sigSetStyle = pyqtSignal(str)
 
     def __init__(self, is_updated: bool, parent=None):
         super(GIWAXSMainWindow, self).__init__(parent=parent)
@@ -85,28 +141,28 @@ class GIWAXSMainWindow(QMainWindow):
         self._init_toolbar()
         self._init_shortcuts()
         self._init_menubar()
+        self.popups = PopUpWrapper(self)
 
         self.q_thead_pool = QThreadPool(self)
 
         self.dock_area = AppDockArea(self)
         self.app.fm.sigProjectClosed.connect(self.update_window_title)
+        self.app.fm.sigProjectOpened.connect(self.update_window_title)
 
         self.setCentralWidget(self.dock_area)
         self.update_window_title()
         self.setWindowIcon(Icon('window_icon'))
         self.setMinimumSize(*self._MinimumSize)
         self.setWindowState(Qt.WindowMaximized)
-        self.set_style(self.app.fm.config['style'] or 'Gray Dark')
-        self.init_window = None
+        self.show()
 
-        if not self.app.fm.project_opened:
-            self.open_init_window(is_updated)
-        else:
-            self.show()
         if not is_updated:
             self.check_update()
+        else:
+            self.popups.add_notification(get_check_result_notification(CheckVersionMessage.latest_version_installed))
 
     def check_update(self):
+        self.popups.add_notification(CheckingVersion(), NotificationTypes.checking_version)
         worker = Worker(check_outdated, version=__version__)
         worker.autoDelete()
         worker.signals.result.connect(self._version_checked)
@@ -117,9 +173,13 @@ class GIWAXSMainWindow(QMainWindow):
         worker.autoDelete()
         worker.signals.result.connect(self._package_updated)
         self.q_thead_pool.start(worker)
+        self.popups.add_notification(UpdatingProgram(target_version), NotificationTypes.updating_program)
 
     @pyqtSlot(object, name='versionChecked')
     def _version_checked(self, res: CheckVersionMessage):
+        self.popups.remove_by_name(NotificationTypes.checking_version)
+        self.popups.add_notification(get_check_result_notification(res), NotificationTypes.check_result)
+
         if res.value == CheckVersionMessage.new_version_available.value:
             try:
                 self.update_package(res.version)
@@ -128,54 +188,19 @@ class GIWAXSMainWindow(QMainWindow):
 
     @pyqtSlot(object, name='packageUpdated')
     def _package_updated(self, is_updated: bool):
+        self.popups.remove_by_name(NotificationTypes.updating_program)
         if is_updated:
-            msg_box = QMessageBox(self)
-            msg_box.setWindowIcon(Icon('window_icon'))
-            msg_box.setWindowTitle('Restart app')
-            msg_box.setText('The program was updated. You have to restart if to apply changes. '
-                            'Do you want to restart now? All the data will be saved.')
-            restart_btn = msg_box.addButton('Restart', QMessageBox.YesRole)
-            msg_box.addButton(QMessageBox.Cancel)
-            msg_box.setDefaultButton(restart_btn)
-            ret = msg_box.exec()
-
-            if msg_box.clickedButton() == restart_btn:
-                self._closing = True
-                self.sigRestartAfterUpdate.emit()
+            ask_restart = AskRestart()
+            ask_restart.sigRestart.connect(self.sigRestartAfterUpdate)
+            self.popups.add_notification(ask_restart)
         else:
-            msg_box = QMessageBox(self)
-            msg_box.setWindowIcon(Icon('error'))
-            msg_box.setWindowTitle('Update failed')
-            msg_box.setText('The new version available. Consider updating the program manually with: \n'
-                            '>>> pip install --user --upgrade giwaxs_gui\n'
-                            'New updates fix critical bugs and add useful features for analysis.')
-            msg_box.setStandardButtons(QMessageBox.Ok)
-            msg_box.exec()
-
-    def open_init_window(self, is_updated: bool):
-        self.init_window = InitWindow(self.app.fm.recent_projects, is_updated)
-        self.init_window.sigOpenProject.connect(self._on_opening_project)
-        self.init_window.sigExit.connect(self._close_from_init)
+            self.popups.add_notification(UpdateFailed())
 
     def update_window_title(self):
         if self.app.fm.project_opened:
             self.setWindowTitle(f'{self.app.fm.project_name} - GIWAXS analysis')
         else:
             self.setWindowTitle('GIWAXS analysis')
-
-    @pyqtSlot(name='exitFromInitWindow')
-    def _close_from_init(self):
-        self._closing = True
-        self.sigCloseApp.emit()
-
-    @pyqtSlot(object, name='NewProject')
-    def _on_opening_project(self, path: Path):
-        if self.init_window:
-            self.init_window.close()
-            self.init_window = None
-        self.show()
-        self.app.fm.open_project(path)
-        self.update_window_title()
 
     @pyqtSlot(name='NewProjectDialog')
     def _new_project_dialog(self):
@@ -184,7 +209,7 @@ class GIWAXSMainWindow(QMainWindow):
             return
         folder = Path(folder)
         if folder.is_dir():
-            self._on_opening_project(folder)
+            self.sigOpenProject.emit(folder)
 
     @pyqtSlot(name='addExSitu')
     def _add_file_dialog(self):
@@ -213,12 +238,16 @@ class GIWAXSMainWindow(QMainWindow):
 
         for project_path in self.app.fm.recent_projects:
             recent_projects_menu.addAction(
-                project_path.name, lambda *x, p=project_path: self._on_opening_project(p))
+                project_path.name, lambda *x, p=project_path: self.sigOpenProject.emit(p))
 
         # Save
 
         self.save_menu = self.file_menu.addMenu('Save project as ...')
         self.save_menu.addAction('Save as h5 file', self._save_as_h5)
+
+        # Close project
+
+        self.file_menu.addAction('Close project', lambda *x: self.sigCloseProject.emit())
 
         # Restart
 
@@ -240,7 +269,7 @@ class GIWAXSMainWindow(QMainWindow):
         # themes = CSS.list_css() + QStyleFactory.keys()
         for theme in themes:
             theme_action = self.themes_menu.addAction(theme)
-            theme_action.triggered.connect(lambda *x, t=theme: self.set_style(t))
+            theme_action.triggered.connect(lambda *x, t=theme: self.sigSetStyle.emit(t))
 
     def _init_shortcuts(self):
         self.copy_shortcut = QShortcut(QKeySequence("Ctrl+C"), self)
@@ -299,21 +328,6 @@ class GIWAXSMainWindow(QMainWindow):
         else:
             self.setWindowState(Qt.WindowFullScreen)
             self.fullscreen_action.setIcon(Icon('fromfullscreen'))
-
-    def set_style(self, name: str = 'Gray Dark'):
-        qapp = QApplication.instance()
-        if not qapp:
-            raise RuntimeError('No running application found.')
-        if name == 'Dark':
-            qapp.setStyleSheet('')
-            qapp.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
-        elif name == 'Gray Dark':
-            qapp.setStyleSheet('')
-            qapp.setStyleSheet(qdarkgraystyle.load_stylesheet_pyqt5())
-        else:
-            return
-
-        self.app.fm.config['style'] = name
 
     @pyqtSlot(name='restartApp')
     def restart(self):

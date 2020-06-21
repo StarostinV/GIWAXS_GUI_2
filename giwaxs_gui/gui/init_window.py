@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (QWidget, QPushButton, QGridLayout,
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 
 from .tools import center_widget, show_error, Icon, color_animation
+from .basic_widgets import Label
 from ..__version import __version__
 
 
@@ -56,19 +57,15 @@ class InitWindow(QWidget):
         else:
             title = f'GIWAXS analysis (version {__version__})'
 
-        title = QLabel(title, self)
-        font = title.font()
-        font.setWeight(72)
-        title.setFont(font)
-        layout.addWidget(title, 0, 0, 1, 3, alignment=Qt.AlignHCenter)
-        layout.addWidget(QLabel('New project', self), 1, 0, 1, 3)
+        layout.addWidget(Label(title, self, 11, True), 0, 0, 1, 3, alignment=Qt.AlignHCenter)
+        layout.addWidget(Label('New project', self, 9), 1, 0, 1, 3)
         layout.addWidget(self.file_line, 2, 0, 1, 2)
         layout.addWidget(self.create_button, 2, 2)
 
         if recent_projects:
             r_layout = QVBoxLayout()
             r_layout.addWidget(QLabel('', self))
-            r_layout.addWidget(QLabel('Recent projects', self))
+            r_layout.addWidget(Label('Recent projects', self, 9))
             for path in recent_projects:
                 btn = QPushButton(path.name)
                 btn.clicked.connect(
