@@ -87,8 +87,17 @@ class Worker(QRunnable):
             self.log.exception(err)
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
-            self.signals.error.emit((exctype, value, traceback.format_exc()))
+            try:
+                self.signals.error.emit((exctype, value, traceback.format_exc()))
+            except RuntimeError:
+                return
         else:
-            self.signals.result.emit(result)
+            try:
+                self.signals.result.emit(result)
+            except RuntimeError:
+                return
         finally:
-            self.signals.finished.emit()
+            try:
+                self.signals.finished.emit()
+            except RuntimeError:
+                return
