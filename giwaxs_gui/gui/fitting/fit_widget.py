@@ -45,6 +45,7 @@ class MoveSource(Enum):
     change_roi_type = auto()
     change_range_strategy = auto()
     range_slider = auto()
+    sigma_slider = auto()
 
 
 class FitWidget(QWidget):
@@ -117,6 +118,8 @@ class FitWidget(QWidget):
         self.set_as_default_button.clicked.connect(self._set_as_default)
         self.range_factor_slider = LabeledSlider('Y range factor', (0, 10), parent=self, decimals=2)
         self.range_factor_slider.valueChanged.connect(self._on_range_slider_moved)
+        self.sigma_slider = LabeledSlider('Sigma', (0, 10), parent=self, decimals=2)
+        self.sigma_slider.valueChanged.connect(self._on_sigma_slider_moved)
         self.fit_current_button = QPushButton(CurrentFitButtonStatus.fit.value)
         self.fit_current_button.clicked.connect(self._fit_current_clicked)
         self.update_data_button = QPushButton('Update fit')
@@ -172,6 +175,7 @@ class FitWidget(QWidget):
         scroll_layout.addWidget(self.set_as_default_button, 0, 1)
         scroll_layout.addWidget(self.fit_current_button, 1, 1)
         scroll_layout.addWidget(self.update_data_button, 2, 1)
+        scroll_layout.addWidget(self.sigma_slider, 3, 1)
         scroll_layout.addWidget(self.sliders_widget, 4, 0, 2, 2)
 
         q_scroll_area.setWidget(options_widget)
@@ -385,11 +389,23 @@ class FitWidget(QWidget):
             self.fit_object.update_fit_data(self._selected_fit, update_r_range=True)
             self._basic_update(MoveSource.range_slider)
 
+    @pyqtSlot(float, name='onSigmaSliderMoved')
+    def _on_sigma_slider_moved(self, sigma: float):
+        if self._selected_fit:
+            self.fit_object.set_sigma(sigma, self._selected_fit)
+            self._basic_update(MoveSource.sigma_slider)
+
     def _update_range_slider(self):
         if self._selected_fit:
             self.range_factor_slider.set_value(self._selected_fit.range_strategy.range_factor, True)
         else:
             self.range_factor_slider.set_value(0)
+
+    def _update_sigma_slider(self):
+        if not self._selected_fit or self._selected_fit.sigma is None:
+            self.sigma_slider.set_value(self.fit_object.default_sigma)
+        else:
+            self.sigma_slider.set_value(self._selected_fit.sigma)
 
     @pyqtSlot(name='updateDataButtonClicked')
     def _update_data_button_clicked(self):
@@ -420,6 +436,7 @@ class FitWidget(QWidget):
         self.fit_object.set_profile(saved_profile=saved_profile)
         if self._selected_fit:
             self.fit_plot.update_plot()
+        self._update_sigma_slider()
 
     @pyqtSlot(bool, name='updateFit')
     def _radial_roi_moved(self, r_range_changed: bool):
@@ -578,6 +595,7 @@ class FitWidget(QWidget):
         self.multi_fit_window.select_fit(self.selected_key)
         self._update_combo_boxes()
         self._update_range_slider()
+        self._update_sigma_slider()
         self._update_current_fit_button()
         self._update_selected_fit_label()
 
@@ -598,6 +616,7 @@ class FitWidget(QWidget):
             self._selected_fit = None
             self._update_combo_boxes()
             self._update_range_slider()
+            self._update_sigma_slider()
             self._update_selected_fit_label()
 
     @pyqtSlot(name='applyResults')

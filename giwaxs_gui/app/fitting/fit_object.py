@@ -38,6 +38,7 @@ class FitObject(object):
         self.default_fitting: FittingFunction.__class__ = Gaussian
         self.default_background: Background.__class__ = LinearBackground
         self.default_range_strategy: RangeStrategy = RangeStrategy()
+        self.default_sigma: float = 0
 
         if saved_profile:
             self.set_profile(saved_profile, update_baseline)
@@ -47,6 +48,7 @@ class FitObject(object):
             return
 
         self.saved_profile = saved_profile
+        self.default_sigma = saved_profile.sigma
 
         if update_baseline:
             self.update_baseline()
@@ -129,7 +131,7 @@ class FitObject(object):
         else:
             r1, r2 = fit.r_range
         x1, x2 = self._get_r_coords(r1), self._get_r_coords(r2)
-        fit.x, fit.y = self._get_x_y(fit.roi, x1, x2)
+        fit.x, fit.y = self._get_x_y(fit.roi, x1, x2, fit.sigma)
 
         if update_fit:
             fit.update_fit(**kwargs)
@@ -139,6 +141,26 @@ class FitObject(object):
             del self.fits[fit.roi.key]
         except KeyError:
             return
+
+    def set_sigma(self, sigma: float, fit: Fit = None):
+        if fit:
+            fit.sigma = sigma
+            self.update_fit_data(fit, update_fit=True)
+        else:
+            self._update_default_sigma(sigma)
+
+            for fit in self.fits.values():
+                if fit.sigma is None:
+                    self.update_fit_data(fit, update_fit=True)
+
+    def _update_default_sigma(self, sigma: float):
+        self.default_sigma = sigma
+        self.r_profile = smooth_curve(self.polar_image.sum(axis=0), sigma)
+
+        if self.saved_profile:
+            self.saved_profile.sigma = sigma
+            if self.saved_profile.baseline is not None:
+                self.r_profile = self.r_profile - self.saved_profile.baseline
 
     def set_range_strategy(self, range_strategy: RangeStrategy, fit: Fit = None, update: bool = True):
         if fit:
@@ -182,15 +204,20 @@ class FitObject(object):
         r1, r2 = roi.radius - roi.width * (factor + 1), roi.radius + roi.width * (factor + 1)
         return min(r1, roi.radius - self.min_range / 2), max(r2, roi.radius + self.min_range / 2)
 
-    def _get_x_y(self, roi: Roi, x1: int, x2: int):
+    def _get_x_y(self, roi: Roi, x1: int, x2: int, sigma: float = None):
         x = self.r_axis[x1:x2]
 
         if roi.type == RoiTypes.ring:
-            y = self.r_profile[x1:x2]
+            if sigma is None:
+                y = self.r_profile[x1:x2]
+            else:
+                y = smooth_curve(self.polar_image[:, x1:x2].sum(axis=0), sigma)
         else:
+            if sigma is None:
+                sigma = self.default_sigma
             p1, p2 = self._get_p_coords(roi.angle - roi.angle_std / 2), \
                      self._get_p_coords(roi.angle + roi.angle_std / 2)
-            y = self.polar_image[max(0, p1):min(p2, self.phi_axis.size - 1), x1:x2].sum(axis=0)
+            y = smooth_curve(self.polar_image[max(0, p1):min(p2, self.phi_axis.size - 1), x1:x2].sum(axis=0), sigma)
 
         return x, y
 

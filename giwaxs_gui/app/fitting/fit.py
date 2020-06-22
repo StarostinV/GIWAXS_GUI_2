@@ -6,10 +6,10 @@ from typing import Tuple
 import numpy as np
 from scipy.optimize import curve_fit
 
-from .functions import FittingType, FittingFunction, FITTING_FUNCTIONS
-from .background import BackgroundType, BACKGROUNDS, Background
+from .functions import FittingFunction
+from .background import Background
 from .utils import Roi
-from .range_strategy import RangeStrategyType, RangeStrategy
+from .range_strategy import RangeStrategy
 
 
 @dataclass
@@ -34,6 +34,7 @@ class Fit:
     fitting_function: FittingFunction
     background: Background
     range_strategy: RangeStrategy
+    sigma: float = None
 
     @property
     def param_names(self):
