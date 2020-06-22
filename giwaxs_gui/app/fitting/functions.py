@@ -57,7 +57,8 @@ class FittingFunction(object):
     @classmethod
     def bounds(cls, x: np.ndarray, y: np.ndarray, roi: Roi, background: Background, params_from_roi: bool = False):
         if params_from_roi:
-            return _update_bounds(roi, cls.PARAM_NAMES, *cls._bounds(x, y, roi, background))
+            return _update_bounds(roi, list(cls.PARAM_NAMES) + list(background.PARAM_NAMES),
+                                  *cls._bounds(x, y, roi, background))
         else:
             return cls._bounds(x, y, roi, background)
 

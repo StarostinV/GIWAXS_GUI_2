@@ -16,7 +16,7 @@ from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 from ..roi_widgets.roi_2d_rect_widget import Roi2DRect
 from ..roi_widgets.roi_1d_widget import Roi1D
 
-from ...app.fitting import Fit, FitObject, FittingType, BackgroundType
+from ...app.fitting import Fit, FitObject, FittingType, BackgroundType, RangeStrategyType, RangeStrategy
 from ...app.file_manager import ImageKey, FolderKey
 from ...app.rois.roi_data import Roi, RoiTypes
 from ...app.profiles import BasicProfile, SavedProfile
@@ -43,6 +43,7 @@ class MoveSource(Enum):
     radial_viewer = auto()
     change_fit_type = auto()
     change_roi_type = auto()
+    change_range_strategy = auto()
     range_slider = auto()
 
 
@@ -110,15 +111,20 @@ class FitWidget(QWidget):
 
         self.functions_box = QComboBox(self)
         self.background_box = QComboBox(self)
+        self.range_strategies_box = QComboBox(self)
+
         self.set_as_default_button = QPushButton('Set as default options')
         self.set_as_default_button.clicked.connect(self._set_as_default)
         self.range_factor_slider = LabeledSlider('Y range factor', (0, 10), parent=self, decimals=2)
         self.range_factor_slider.valueChanged.connect(self._on_range_slider_moved)
         self.fit_current_button = QPushButton(CurrentFitButtonStatus.fit.value)
         self.fit_current_button.clicked.connect(self._fit_current_clicked)
+        self.update_data_button = QPushButton('Update fit')
+        self.update_data_button.clicked.connect(self._update_data_button_clicked)
 
         self.functions_box.currentTextChanged.connect(self._change_function)
         self.background_box.currentTextChanged.connect(self._change_background)
+        self.range_strategies_box.currentTextChanged.connect(self._change_range_strategy)
 
         self.functions_box.addItem('Fitting functions')
         for t in FittingType:
@@ -126,6 +132,9 @@ class FitWidget(QWidget):
         self.background_box.addItem('Backgrounds')
         for t in BackgroundType:
             self.background_box.addItem(t.value)
+        self.range_strategies_box.addItem('Range strategy')
+        for t in RangeStrategyType:
+            self.range_strategies_box.addItem(t.value)
 
         self.selected_fit_label = QLabel('Selected Fit', self)
         self.current_image_label = QLabel('Current Image', self)
@@ -157,10 +166,13 @@ class FitWidget(QWidget):
         scroll_layout = QGridLayout(options_widget)
         scroll_layout.addWidget(self.background_box, 0, 0)
         scroll_layout.addWidget(self.functions_box, 1, 0)
-        scroll_layout.addWidget(self.range_factor_slider, 2, 0)
+        scroll_layout.addWidget(self.range_strategies_box, 2, 0)
+        scroll_layout.addWidget(self.range_factor_slider, 3, 0)
+
         scroll_layout.addWidget(self.set_as_default_button, 0, 1)
         scroll_layout.addWidget(self.fit_current_button, 1, 1)
-        scroll_layout.addWidget(self.sliders_widget, 3, 0, 2, 2)
+        scroll_layout.addWidget(self.update_data_button, 2, 1)
+        scroll_layout.addWidget(self.sliders_widget, 4, 0, 2, 2)
 
         q_scroll_area.setWidget(options_widget)
 
@@ -302,12 +314,16 @@ class FitWidget(QWidget):
     def _update_combo_boxes(self):
         self.background_box.setCurrentIndex(0)
         self.functions_box.setCurrentIndex(0)
+        self.range_strategies_box.setCurrentIndex(0)
         if not self._selected_fit:
             self.background_box.setItemText(0, 'Backgrounds')
             self.functions_box.setItemText(0, 'Fitting functions')
+            self.range_strategies_box.setItemText(0, 'Range strategy')
         else:
             self.background_box.setItemText(0, f'Current background: {self._selected_fit.background.TYPE.value}')
             self.functions_box.setItemText(0, f'Current function: {self._selected_fit.fitting_function.TYPE.value}')
+            self.range_strategies_box.setItemText(
+                0, f'Range strategy: {self._selected_fit.range_strategy.strategy_type.value}')
 
     @property
     def selected_key(self):
@@ -323,6 +339,20 @@ class FitWidget(QWidget):
                 self._unfix(self._selected_fit.roi)
             self.fit_object.set_function(FittingType(self.functions_box.currentText()), fit=self._selected_fit)
             self._basic_update(MoveSource.change_fit_type)
+            self._update_combo_boxes()
+
+    @pyqtSlot(name='changeRangeStrategy')
+    def _change_range_strategy(self):
+        if not self.range_strategies_box.currentIndex():
+            return
+        if self._selected_fit:
+            if not self._selected_fit.roi.movable:
+                self._unfix(self._selected_fit.roi)
+            range_type: RangeStrategyType = RangeStrategyType(self.range_strategies_box.currentText())
+            range_factor: float = self.range_factor_slider.value
+            strategy = RangeStrategy(range_factor, range_type, False)
+            self.fit_object.set_range_strategy(strategy, fit=self._selected_fit)
+            self._basic_update(MoveSource.change_range_strategy)
             self._update_combo_boxes()
 
     @pyqtSlot(name='changeBackground')
@@ -346,6 +376,11 @@ class FitWidget(QWidget):
     @pyqtSlot(float, name='rangeSliderMoved')
     def _on_range_slider_moved(self, value: float):
         if self._selected_fit:
+            if not self._selected_fit.roi.movable:
+                self._unfix(self._selected_fit.roi)
+            if self._selected_fit.range_strategy.strategy_type.value == RangeStrategyType.fixed.value:
+                self._selected_fit.range_strategy.strategy_type = RangeStrategyType.adjust
+                self._update_combo_boxes()
             self._selected_fit.range_strategy.range_factor = value
             self.fit_object.update_fit_data(self._selected_fit, update_r_range=True)
             self._basic_update(MoveSource.range_slider)
@@ -355,6 +390,14 @@ class FitWidget(QWidget):
             self.range_factor_slider.set_value(self._selected_fit.range_strategy.range_factor, True)
         else:
             self.range_factor_slider.set_value(0)
+
+    @pyqtSlot(name='updateDataButtonClicked')
+    def _update_data_button_clicked(self):
+        if self._selected_fit:
+            if not self._selected_fit.roi.movable:
+                self._unfix(self._selected_fit.roi)
+            self.fit_object.update_fit_data(self._selected_fit, update_fit=True)
+            self._basic_update(MoveSource.sliders)
 
     @pyqtSlot(name='currentFitButtonClicked')
     def _fit_current_clicked(self):
@@ -382,6 +425,9 @@ class FitWidget(QWidget):
     def _radial_roi_moved(self, r_range_changed: bool):
         if r_range_changed:
             self.fit_object.update_fit_data(self._selected_fit, update_r_range=False)
+            if self._selected_fit.range_strategy.strategy_type.value == RangeStrategyType.adjust.value:
+                self._selected_fit.range_strategy.strategy_type = RangeStrategyType.fixed
+                self._update_combo_boxes()
         self._basic_update(MoveSource.radial_viewer)
 
     def _basic_update(self, source: MoveSource):
@@ -598,7 +644,6 @@ class FitWidget(QWidget):
     def closeEvent(self, a0) -> None:
         msg_box = QMessageBox()
         msg_box.setWindowTitle('Closing the fitting window')
-        msg_box.setWindowIcon(Icon('error'))
         msg_box.setText("The fitting results will be deleted if you have not applied them yet.")
         msg_box.setInformativeText("Do you want to apply the results and add them to your project? "
                                    "Select Close if you already saved everything.")

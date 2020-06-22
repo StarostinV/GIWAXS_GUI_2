@@ -497,6 +497,8 @@ class ProgressWidget(QWidget):
         self.progress_bar.setMaximum(self.folder_key.images_num - 1)
         self.slider.setMaximum(self.folder_key.images_num - 1)
         self.slider.valueChanged.connect(self._on_slider_moved)
+        if self.current_key:
+            self.slider.setValue(self.current_key.idx)
 
         layout.addWidget(self.label)
         layout.addWidget(self.progress_bar)
@@ -514,10 +516,10 @@ class ProgressWidget(QWidget):
     @pyqtSlot(int, name='sliderMoved')
     def _on_slider_moved(self, value: int):
         image_key = self.folder_key.image_by_key(value)
-        self.label.setText(self._label_text())
         if image_key and image_key != self.current_key:
             self.current_key = image_key
             self.sigImageChanged.emit(image_key)
+            self.label.setText(self._label_text())
 
     @pyqtSlot(object, name='changeImage')
     def change_image(self, image_key: ImageKey):

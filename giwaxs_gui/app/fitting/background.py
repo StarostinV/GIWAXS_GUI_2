@@ -1,11 +1,10 @@
 from enum import Enum
 from abc import abstractmethod
-from typing import Dict, Callable
+from typing import Dict
 
 import numpy as np
 
-from .utils import Roi, _update_bounds
-from ..utils import baseline_correction
+from .utils import Roi
 
 __all__ = ['BackgroundType', 'BACKGROUNDS', 'Background', 'LinearBackground', 'ConstantBackground']
 
@@ -22,16 +21,15 @@ class Background(object):
 
     is_default: bool = True
 
-    AMP_PADDING: float = 1.3
+    AMP_PADDING: float = 1.1
 
     @staticmethod
     @abstractmethod
     def _bounds(x: np.ndarray, y: np.ndarray) -> tuple:
         pass
 
-    def bounds(self, x: np.ndarray, y: np.ndarray, roi: Roi):
-        init, upper, lower = self._bounds(x, y)
-        return _update_bounds(roi, self.PARAM_NAMES, init, upper, lower)
+    def bounds(self, x: np.ndarray, y: np.ndarray, roi: Roi = None):
+        return self._bounds(x, y)
 
     @abstractmethod
     def __call__(self, x: np.ndarray, *params) -> np.ndarray:

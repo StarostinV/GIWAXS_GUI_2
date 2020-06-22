@@ -59,8 +59,11 @@ class FitObject(object):
 
     def update_baseline(self):
         if self.saved_profile:
+            if not self.saved_profile.x_range:
+                self.saved_profile = None
+                return
             self.saved_profile.x = self.r_axis
-            r1, r2 = self.saved_profile.x_range or self.r_axis[0], self.r_axis[-1]
+            r1, r2 = self.saved_profile.x_range
             x1, x2 = self._get_r_coords(r1), self._get_r_coords(r2)
             self.saved_profile.raw_data = self.polar_image.sum(axis=0)
             self.r_profile = smooth_curve(self.saved_profile.raw_data, self.saved_profile.sigma)
@@ -81,6 +84,7 @@ class FitObject(object):
 
     def add_fit(self, fit: Fit):
         self.fits[fit.roi.key] = fit
+        fit.roi.movable = True
         update_r_range = fit.range_strategy.strategy_type == RangeStrategyType.adjust
         self.update_fit_data(fit, update_r_range, update_fit=True)
 
@@ -120,7 +124,7 @@ class FitObject(object):
                 self._update_fit_data(fit, update_r_range, update_fit=update_fit, **kwargs)
 
     def _update_fit_data(self, fit: Fit, update_r_range: bool = True, *, update_fit: bool = False, **kwargs):
-        if update_r_range:
+        if update_r_range and fit.range_strategy.strategy_type.value == RangeStrategyType.adjust.value:
             fit.r_range = r1, r2 = self._get_r_range(fit.roi, fit.range_strategy.range_factor)
         else:
             r1, r2 = fit.r_range
@@ -140,6 +144,8 @@ class FitObject(object):
         if fit:
             range_strategy.is_default = False
             fit.range_strategy = range_strategy
+            if update:
+                self.update_fit_data(fit, update_fit=True)
         else:
             self.default_range_strategy = range_strategy
             for fit in self.fits.values():
