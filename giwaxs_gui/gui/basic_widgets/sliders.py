@@ -193,7 +193,7 @@ class LabeledSlider(QWidget):
 
         self.valueChanged.emit(self.slider.value())
 
-    def set_value(self, value: float, change_bounds: bool = False):
+    def set_value(self, value: float, change_bounds: bool = True):
         if change_bounds and value < self.slider.minimum():
             self.slider.setMinimum(value)
 
@@ -202,8 +202,6 @@ class LabeledSlider(QWidget):
 
         self.slider.setValue(value)
         self.line_edit.setText(self.get_str_value())
-        if value != self.value:
-            self.valueChanged.emit(value)
 
 
 class AnimatedSlider(RoundedPushButton):
