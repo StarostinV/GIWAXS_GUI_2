@@ -48,6 +48,13 @@ class MoveSource(Enum):
     sigma_slider = auto()
 
 
+class DeleteRegime(Enum):
+    current = auto()
+    following = auto()
+    previous = auto()
+    all = auto()
+
+
 class FitWidget(QWidget):
     sigFitApplyActiveImage = pyqtSignal(object)
 
@@ -266,7 +273,13 @@ class FitWidget(QWidget):
 
     def _rect_context(self, roi: Roi):
         menu = QMenu()
-        menu.addAction('Delete', lambda *x, r=roi: self._delete_roi(roi))
+        delete_menu = menu.addMenu('Delete')
+        delete_menu.addAction('Delete on this image',
+                              lambda *x, r=roi: self._delete_rois(roi, DeleteRegime.current))
+        delete_menu.addAction('Delete on all the following images',
+                              lambda *x, r=roi: self._delete_rois(roi, DeleteRegime.following))
+        delete_menu.addAction('Delete everywhere',
+                              lambda *x, r=roi: self._delete_rois(roi, DeleteRegime.all))
         if roi.movable:
             menu.addAction('Fix', lambda *x, r=roi: self._fix(roi))
             menu.addAction('Fit', lambda *x, r=roi: self._fit(roi))
@@ -278,13 +291,24 @@ class FitWidget(QWidget):
             menu.addAction(f'Change to ring type', lambda *x, r=roi: self._change_roi_type(roi))
         menu.exec_(QCursor.pos())
 
-    def _delete_roi(self, roi: Roi):
-        if roi.key == self.selected_key:
-            self._remove_selected_fit()
+    def _delete_rois(self, roi: Roi, delete_regime: DeleteRegime):
+        if delete_regime.value == DeleteRegime.current.value:
+            image_keys: List[ImageKey] = [self.fit_object.image_key]
+        elif delete_regime.value == DeleteRegime.following.value:
+            image_keys: List[ImageKey] = [key for key in self.fit_object.image_key.parent.image_children if
+                                          key.idx > self.fit_object.image_key.idx]
+        elif delete_regime.value == DeleteRegime.all.value:
+            image_keys: List[ImageKey] = [key for key in self.fit_object.image_key.parent.image_children]
+        else:
+            raise ValueError('Unknown delete regime used.')
 
-        del self.fit_object.fits[roi.key]
-        self.polar_viewer.image_plot.removeItem(self._rect_widgets.pop(roi.key))
-        self.multi_fit_window.delete_roi(roi)
+        self.multi_fit_window.delete_rois(image_keys, roi.key)
+
+        if self.current_image_key in image_keys:
+            if roi.key == self.selected_key:
+                self._remove_selected_fit()
+            del self.fit_object.fits[roi.key]
+            self.polar_viewer.image_plot.removeItem(self._rect_widgets.pop(roi.key))
 
     def _change_roi_type(self, roi: Roi):
         if roi.type == RoiTypes.ring:
