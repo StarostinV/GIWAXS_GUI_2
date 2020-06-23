@@ -2,6 +2,8 @@ import subprocess
 import sys
 import logging
 import argparse
+import platform
+import os
 
 
 def update_package(version: str = '', num_of_attempts: int = 2) -> bool:
@@ -9,9 +11,14 @@ def update_package(version: str = '', num_of_attempts: int = 2) -> bool:
     logger.info(f'Updating the package to {version}...')
 
     try:
-        subprocess.check_call(['giwaxs_gui_update', f'--version={version}',
-                               f'--num_of_attempts={num_of_attempts}'],
-                              creationflags=subprocess.CREATE_NO_WINDOW)
+        if platform.system() == 'Windows':
+            subprocess.check_call(['giwaxs_gui_update', f'--version={version}',
+                                   f'--num_of_attempts={num_of_attempts}'],
+                                  creationflags=subprocess.CREATE_NO_WINDOW)
+        else:
+            subprocess.check_call(['nohup', 'giwaxs_gui_update', f'--version={version}',
+                                   f'--num_of_attempts={num_of_attempts}'],
+                                  shell=False, stdout=None, stderr=None, preexec_fn=os.setpgrp)
         return True
 
     except (subprocess.CalledProcessError, FileNotFoundError) as err:

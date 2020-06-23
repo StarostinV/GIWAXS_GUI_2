@@ -6,7 +6,7 @@ import subprocess
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
 
-from giwaxs_gui.app import App
+from giwaxs_gui.app import App, launch_detached
 from giwaxs_gui.gui import GIWAXSMainController, UncaughtHook, DebugWindow
 from giwaxs_gui.__version import __version__
 
@@ -39,7 +39,7 @@ def main():
     exit_code: int = run(level)
 
     if exit_code == GIWAXSMainController.EXIT_CODE_REBOOT:
-        subprocess.Popen('giwaxs_gui', creationflags=subprocess.DETACHED_PROCESS)
+        launch_detached()
         return 0
 
     return exit_code
