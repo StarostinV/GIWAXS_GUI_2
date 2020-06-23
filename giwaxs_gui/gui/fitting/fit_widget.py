@@ -598,6 +598,7 @@ class FitWidget(QWidget):
                 self.sliders_widget.update_values()
 
             self.multi_fit_window.update_fit(fit)
+            self._rect_widgets[key].move_roi()
 
         self._fix(keys_to_fix)
 
