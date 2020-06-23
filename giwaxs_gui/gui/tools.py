@@ -33,13 +33,14 @@ def get_image_filepath(parent, message: str = 'Open image') -> Path or None:
         return Path(filepath)
 
 
-def get_folder_filepath(parent, message: str, *, show_files: bool = True) -> Path or None:
+def get_folder_filepath(parent, message: str, *, show_files: bool = True,
+                        directory: str = '') -> Path or None:
     options = QFileDialog.DontResolveSymlinks | QFileDialog.DontUseNativeDialog
     if not show_files:
         options |= QFileDialog.ShowDirsOnly
 
     folder_path = QFileDialog.getExistingDirectory(
-        parent, message, '',
+        parent, message, directory=directory,
         options=options)
     if folder_path:
         return Path(folder_path)
