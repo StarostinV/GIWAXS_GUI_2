@@ -7,3 +7,5 @@ from .toolbars import ToolBar, BlackToolBar
 from .spinner import Spinner
 from .popups import PopUpWrapper, TextNotification
 from .labels import LabelButton, Label, HyperlinkLabel
+from .mouse_events import MouseEventsController, ViewBoxMouseEvents, DrawRoiController
+
