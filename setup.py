@@ -45,7 +45,7 @@ setup(
         'opencv-python>=4.0.0.0',
         'scipy>=1.4.1',
         'h5py>=2.10.0',
-        'PyQt5',
+        'PyQt5==5.13.0',
         'pyqtgraph==0.11.0rc0',
         'read_edf',
         'Pillow',
