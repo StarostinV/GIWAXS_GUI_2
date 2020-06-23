@@ -1,7 +1,6 @@
 import sys
 import argparse
 import logging
-import subprocess
 
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
@@ -31,8 +30,13 @@ def main():
     parser = argparse.ArgumentParser(description='Program for GIWAXS analysis')
 
     parser.add_argument('-d', '--debug', action='store_true', help='open program in debug mode')
+    parser.add_argument('--version', action='store_true', help='show the installed version')
 
     args = parser.parse_args()
+
+    if args.version:
+        print(__version__)
+        return
 
     level: int = logging.DEBUG if args.debug else logging.ERROR
 
