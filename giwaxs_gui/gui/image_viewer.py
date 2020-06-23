@@ -3,12 +3,14 @@ import logging
 
 from pyqtgraph import CircleROI
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton)
-from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtCore import pyqtSignal, Qt, QPointF
+
+import numpy as np
 
 from ..app.rois.roi import Roi
 from ..app import App
 from ..app.transformations import Transformation
-from .basic_widgets import CustomImageViewer, LabeledSlider, BlackToolBar
+from .basic_widgets import CustomImageViewer, LabeledSlider, BlackToolBar, DrawRoiController
 from .roi_widgets.roi_2d_ring_widget import Roi2DRing
 from .roi_widgets.abstract_roi_holder import AbstractRoiHolder
 from .tools import Icon, center_widget
@@ -51,6 +53,11 @@ class GiwaxsImageViewer(AbstractRoiHolder, CustomImageViewer):
         self.image_plot.getAxis('bottom').setLabel(text='<math>Q<sub>xy</sub></math>', color='white')
         self.image_plot.getAxis('left').setLabel(text='<math>Q<sub>z</sub></math>', color='white')
         self.app = App()
+
+        self._draw_roi = ImageDrawRoiController(self.view_box, self)
+        self._draw_roi.sigCreateRoi.connect(self.app.roi_dict.add_roi)
+        self._draw_roi.sigMoveRoi.connect(self.app.roi_dict.move_roi)
+
         self._geometry_params_widget = None
         self.__init_center_roi()
         self.app.geometry_holder.sigScaleChanged.connect(self._on_scale_changed)
@@ -109,6 +116,17 @@ class GiwaxsImageViewer(AbstractRoiHolder, CustomImageViewer):
     def _on_beam_center_changed(self):
         beam_center = self.app.geometry.beam_center
         self.set_center((beam_center.y, beam_center.z), pixel_units=True)
+
+
+class ImageDrawRoiController(DrawRoiController):
+    def _update_roi(self, point: QPointF):
+        r1, r2 = self._init_point.x(), point.x()
+        p1, p2 = self._init_point.y(), point.y()
+
+        r1 = np.sqrt(r1 ** 2 + p1 ** 2)
+        r2 = np.sqrt(r2 ** 2 + p2 ** 2)
+
+        self._roi.radius, self._roi.width = (r1 + r2) / 2, abs(r2 - r1)
 
 
 class GeometryParametersWidget(QWidget):

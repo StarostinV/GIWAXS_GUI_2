@@ -5,8 +5,9 @@ import logging
 from scipy.signal import find_peaks
 
 from PyQt5.QtGui import QColor
+from PyQt5.QtCore import QPointF
 
-from ..basic_widgets import (ConfirmButton,
+from ..basic_widgets import (ConfirmButton, DrawRoiController,
                              RoundedPushButton, PlotBC,
                              BlackToolBar, BasicInputParametersWidget)
 from ...app.app import App
@@ -29,6 +30,9 @@ class RadialProfileWidget(AbstractRoiHolder, PlotBC):
         self._init_radial_toolbars()
         self._fit_params_dict: dict = PeaksSetupWindow.get_config()
         self._peaks_setup = None
+        self._draw_roi = RadialDrawRoi(self.view_box, self)
+        self._draw_roi.sigCreateRoi.connect(self.app.roi_dict.add_roi)
+        self._draw_roi.sigMoveRoi.connect(self.app.roi_dict.move_roi)
 
         # self.image_view.plot_item.setTitle('Radial Profile')
         self.image_view.plot_item.getAxis('bottom').setLabel('|Q|', color='white', font_size='large')
@@ -128,12 +132,17 @@ class RadialProfileWidget(AbstractRoiHolder, PlotBC):
         self._peaks_setup = None
 
 
+class RadialDrawRoi(DrawRoiController):
+    def _update_roi(self, point: QPointF):
+        r1, r2 = self._init_point.x(), point.x()
+        self._roi.radius, self._roi.width = (r1 + r2) / 2, abs(r2 - r1)
+
+
 class PeaksSetupWindow(BasicInputParametersWidget):
     P = BasicInputParametersWidget.InputParameters
 
     PARAMETER_TYPES = (P('max_peaks_number',
-                         'Maximum number of peaks',
-                         int, 'Do not recommended to put high numbers'),
+                         'Maximum number of peaks',                         int, 'Do not recommended to put high numbers'),
                        P('init_width', 'Peaks width', float,
                          'Gaussian fitting will start with this number'),
                        P('sigma_find', 'Sigma to find peaks', float,

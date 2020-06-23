@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 class Custom1DPlot(GraphicsLayoutWidget):
+    @property
+    def view_box(self):
+        return self.plot_item.vb
+
     def __init__(self, *args, parent=None):
         super().__init__(parent)
         self.plot_item = self.addPlot()
@@ -60,6 +64,10 @@ class Smooth1DPlot(QMainWindow):
     _MaximumSliderHeight = 30
 
     sigSigmaChanged = pyqtSignal(float)
+
+    @property
+    def view_box(self):
+        return self.image_view.view_box
 
     def __init__(self, profile: BasicProfile, parent=None):
         super().__init__(parent)

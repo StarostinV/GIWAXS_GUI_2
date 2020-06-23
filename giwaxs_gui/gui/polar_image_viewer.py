@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 
 from PyQt5.QtWidgets import QMainWindow, QLabel, QComboBox, QHBoxLayout
-from PyQt5.QtCore import pyqtSlot, Qt
+from PyQt5.QtCore import pyqtSlot, Qt, QPointF
 
 import numpy as np
 from .basic_widgets import (CustomImageViewer, BlackToolBar, BasicInputParametersWidget,
-                            InfoButton, AbstractInputParametersWidget)
+                            InfoButton, AbstractInputParametersWidget,
+                            DrawRoiController)
 from .roi_widgets.roi_2d_rect_widget import Roi2DRect
 from .roi_widgets.abstract_roi_holder import AbstractRoiHolder
 
 from ..app.app import App
+from ..app.rois.roi import Roi, RoiTypes
 from ..app.polar_image import INTERPOLATION_ALGORITHMS
 from .tools import Icon
 
@@ -22,8 +24,12 @@ class PolarImageViewer(AbstractRoiHolder, QMainWindow):
         self.app = App()
         self._setup_window = None
         self._interpolation_params_dict: dict = InterpolateSetupWindow.get_config()
-
         self._image_viewer = CustomImageViewer(self)
+
+        self._draw_roi = PolarDrawRoi(self._image_viewer.view_box, self)
+        self._draw_roi.sigCreateRoi.connect(self.app.roi_dict.add_roi)
+        self._draw_roi.sigMoveRoi.connect(self.app.roi_dict.move_roi)
+
         self._image_viewer.image_plot.getAxis('bottom').setLabel(
             text='|Q|', color='white', font_size='large')
         self._image_viewer.image_plot.getAxis('left').setLabel(
@@ -85,6 +91,18 @@ class PolarImageViewer(AbstractRoiHolder, QMainWindow):
 
     def close_peaks_setup(self):
         self._setup_window = None
+
+
+class PolarDrawRoi(DrawRoiController):
+
+    def _update_roi(self, point: QPointF):
+        r1, r2 = self._init_point.x(), point.x()
+        p1, p2 = self._init_point.y(), point.y()
+        self._roi.radius, self._roi.width = (r1 + r2) / 2, abs(r2 - r1)
+        self._roi.angle, self._roi.angle_std = (p1 + p2) / 2, abs(p2 - p1)
+
+    def _init_roi(self) -> Roi:
+        return Roi(0, 0, 0, 0, type=RoiTypes.segment)
 
 
 class InterpolateSetupWindow(BasicInputParametersWidget):
