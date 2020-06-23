@@ -197,8 +197,12 @@ class RoiDict(QObject):
         if self._roi_data.selected_num == 1:
             self.sig_one_selected.emit(next(iter(self._roi_data.selected_keys)))
 
+    @pyqtSlot(object, name='addRoi')
+    @_check_non_empty
     def add_roi(self, roi: Roi) -> None:
         self._roi_data.add_roi(roi)
+        if roi.type == RoiTypes.ring and (roi.angle, roi.angle_std) != self.ring_bounds:
+            roi.angle, roi.angle_std = self.ring_bounds
         self.sig_roi_created.emit((roi.key,))
         if roi.active:
             self._emit_select((roi.key,))
