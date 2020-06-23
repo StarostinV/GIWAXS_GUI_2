@@ -61,20 +61,22 @@ class InitWindow(QWidget):
             title = f'GIWAXS analysis (version {__version__})'
 
         layout.addWidget(Label(title, self, 11, True), 0, 0, 1, 3, alignment=Qt.AlignHCenter)
-        layout.addWidget(Label('New project', self, 9), 1, 0, 1, 3)
+        layout.addWidget(Label('New project', self, 9.5), 1, 0, 1, 3)
         layout.addWidget(self.file_line, 2, 0, 1, 2)
         layout.addWidget(self.create_button, 2, 2)
 
         if recent_projects:
-            layout.addWidget(self._init_recent_projects_area(recent_projects),  3, 0, 1, 3)
-        e_layout = QVBoxLayout()
+            layout.addWidget(self._init_recent_projects_area(recent_projects), 3, 0, 1, 3)
 
+        layout.addLayout(self._init_exit_button(), 4 if recent_projects else 3, 0, 1, 3)
+
+    def _init_exit_button(self):
+        e_layout = QVBoxLayout()
         exit_button = QPushButton('Exit')
         exit_button.clicked.connect(self.sigExit)
         e_layout.addWidget(QLabel(''))
         e_layout.addWidget(exit_button)
-
-        layout.addLayout(e_layout, 4 if recent_projects else 3, 0, 1, 3)
+        return e_layout
 
     def _init_recent_projects_area(self, recent_projects):
         q_scroll_area = QScrollArea(self)
@@ -88,7 +90,7 @@ class InitWindow(QWidget):
 
         scroll_layout = QVBoxLayout(projects_list_widget)
         scroll_layout.addWidget(QLabel('', self))
-        scroll_layout.addWidget(Label('Recent projects', self, 9))
+        scroll_layout.addWidget(Label('Recent projects', self, 9.5))
         for path in recent_projects:
             btn = QPushButton(path.name)
             btn.clicked.connect(
