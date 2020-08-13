@@ -9,33 +9,72 @@ from PyQt5.QtWidgets import (QPlainTextEdit, QTreeWidget,
                              QTreeWidgetItem, QWidget, QPushButton,
                              QVBoxLayout, QApplication, QLabel, QSplitter,
                              QListWidget, QListWidgetItem, QLineEdit, QMenu,
-                             QCheckBox, QGridLayout)
+                             QCheckBox, QGridLayout, QComboBox)
 
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QTextCursor
 
 from ..app import App
 from ..app.debug_tracker import ObjectTracker, ObjectStatus
 
 
+def _set_html_color(message, level):
+    return f'<font color="{_COLOR_DICT.get(level, "white")}"> {message}'
+
+
+_COLOR_DICT = dict(DEBUG='green', INFO='white', WARNING='yellow', ERROR='red')
+_LEVEL_DICT = dict(DEBUG=logging.DEBUG, INFO=logging.INFO,
+                   WARNING=logging.WARNING, ERROR=logging.ERROR)
+
+
 class QTextEditLogger(logging.Handler, QObject):
-    appendPlainText = pyqtSignal(str)
+    sigAppendLog = pyqtSignal(str)
+    MAX_LENGTH = 300
 
     def __init__(self, parent):
         super().__init__()
         QObject.__init__(self)
-        self.widget = QPlainTextEdit(parent)
-        self.widget.setReadOnly(True)
-        self.appendPlainText.connect(self.widget.appendPlainText)
+
+        self._init_ui(parent)
+
+        # self.cursor = QTextCursor(self.text_widget.document())
+        self.sigAppendLog.connect(self.append_log)
         self.setFormatter(
             logging.Formatter(
-                '%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s'))
+                '%(levelname)s %(module)s:%(funcName)s %(message)s'))
         logging.getLogger().addHandler(self)
-        logging.getLogger().setLevel(logging.DEBUG)
+        self.setLevel(logging.DEBUG)
+
+    def _init_ui(self, parent):
+        self.widget = QWidget(parent)
+        self.level_box = QComboBox(self.widget)
+        self.level_box.addItems('DEBUG INFO WARNING ERROR'.split())
+        self.level_box.currentIndexChanged.connect(self.level_changed)
+        self.text_widget = QPlainTextEdit(self.widget)
+        self.text_widget.setReadOnly(True)
+        layout = QGridLayout(self.widget)
+
+        layout.addWidget(self.level_box, 0, 0)
+        layout.addWidget(self.text_widget, 1, 0)
+
+    @pyqtSlot(int, name='levelBoxIndexChanged')
+    def level_changed(self, idx):
+        text = self.level_box.currentText()
+        self.setLevel(_LEVEL_DICT[text])
+
+    @pyqtSlot(str, name='appendLog')
+    def append_log(self, log: str):
+        level, *message = log.split()
+        message = _set_html_color(' '.join(message), level)
+        if len(message) > self.MAX_LENGTH:
+            self.text_widget.appendPlainText('')
+        self.text_widget.appendHtml(message)
+        if len(message) > self.MAX_LENGTH:
+            self.text_widget.appendPlainText('')
 
     def emit(self, record):
         msg = self.format(record)
         try:
-            self.appendPlainText.emit(msg)
+            self.sigAppendLog.emit(msg)
         except RuntimeError:
             pass
 
@@ -107,6 +146,7 @@ class TrackerWidget(QWidget):
             q_menu.addAction('Remove', lambda *args, key=item.id: self._remove(key))
             self.tracker.add_object(q_menu)
             q_menu.exec(widget.mapToGlobal(pos))
+
         return menu
 
     @pyqtSlot(name='searchItems')
