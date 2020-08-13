@@ -6,10 +6,11 @@ from pyqtgraph.dockarea import DockArea, Dock
 from ..app import App
 from .image_viewer import Basic2DImageWidget
 from .polar_image_viewer import PolarImageViewer
-from .file_viewer.viewer import FileViewer
+from .file_viewer import MainFileWidget
 from .profiles.radial_profile_widget import RadialProfileWidget
 from .profiles.angular_profile_widget import AngularProfileWidget
 from .fitting import FitWidget
+from .save_window import SaveWindow
 
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,12 @@ class AppDockArea(DockArea):
         self._fit_widget = None
 
         self.app.image_holder.sigFitOpen.connect(self._open_fit_widget)
+
+    def open_save_window(self):
+        self.app.save_state()
+        save_window = SaveWindow(self)
+        save_window.sigSaveClicked.connect(self.app.data_manager.save)
+        save_window.show()
 
     def _open_fit_widget(self, fit_object):
         fit_widget = FitWidget(fit_object, parent=self.parent())
@@ -86,8 +93,8 @@ class AppDockArea(DockArea):
     #     self.control_dock = control_dock
 
     def __init_file_widget(self):
-        self.file_widget = FileViewer(self.app.fm, self)
-        self.file_dock = Dock('Files')
+        self.file_widget = MainFileWidget(self.app.fm, self)
+        self.file_dock = Dock('Project')
         self.file_dock.addWidget(self.file_widget)
         self.addDock(self.file_dock, position='left')
 
