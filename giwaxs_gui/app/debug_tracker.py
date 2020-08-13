@@ -83,7 +83,7 @@ class ObjectTracker(QObject):
 
     @pyqtSlot(name='onDestroyed')
     def _on_destroyed(self, *args):
-        logger.debug('destroyed signal in tracker')
+        # logger.debug('destroyed signal in tracker')
         self._deleted_by_c = True
 
 

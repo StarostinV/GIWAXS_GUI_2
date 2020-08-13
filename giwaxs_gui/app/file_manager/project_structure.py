@@ -71,6 +71,13 @@ class ProjectRootKey(FolderKey):
             except ValueError:
                 return
 
+    def expand_tree(self, folder_key: FolderKey = None):
+        folder_key = folder_key or self
+
+        for child_folder in folder_key.folder_children:
+            child_folder.update()
+            self.expand_tree(child_folder)
+
 
 @dataclass
 class H5ProjectConfig:
@@ -81,16 +88,16 @@ class ProjectStructure(object):
     log = logging.getLogger(__name__)
 
     def __init__(self):
-        self._root: ProjectRootKey = None
+        self._root: ProjectRootKey or None = None
         self.config = defaultdict(lambda: False)
-        self.path: Path = None
+        self.path: Path or None = None
 
     @property
     def project_opened(self):
         return self._root is not None
 
     @property
-    def root(self) -> ProjectRootKey:
+    def root(self) -> ProjectRootKey or None:
         return self._root
 
     def save(self, restore: bool = True):

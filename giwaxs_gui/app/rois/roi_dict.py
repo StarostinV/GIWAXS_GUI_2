@@ -1,11 +1,13 @@
 from copy import deepcopy
-from typing import List, Tuple
+from typing import List, Tuple, Iterable
+import logging
 
 from PyQt5.QtCore import pyqtSlot, pyqtSignal, QObject
 
 from .roi import Roi, RoiTypes
 from .roi_data import RoiData
-from ..file_manager import FileManager, ImageKey
+from .roi_meta_data import RoiMetaData
+from ..file_manager import FileManager, ImageKey, FolderKey
 from ..geometry_holder import GeometryHolder
 
 
@@ -23,6 +25,7 @@ class RoiDict(QObject):
     sig_roi_created = pyqtSignal(tuple)
     sig_roi_deleted = pyqtSignal(tuple)
     sig_roi_moved = pyqtSignal(tuple, str)
+    sig_deleted_rois_updated = pyqtSignal(tuple)
 
     sig_selected = pyqtSignal(tuple)
     sig_one_selected = pyqtSignal(int)
@@ -35,13 +38,22 @@ class RoiDict(QObject):
 
     EMIT_NAME = 'RoiDict'
 
+    log = logging.getLogger(__name__)
+
     def __init__(self, file_manager: FileManager, geometry_holder: GeometryHolder):
         super().__init__()
         self._geometry_holder: GeometryHolder = geometry_holder
         self._fm: FileManager = file_manager
         self._roi_data: RoiData = RoiData()
         self._current_key: ImageKey or None = None
+        self._meta_data: RoiMetaData or None = None
         self._copied_rois: CopiedRois = CopiedRois()
+
+    def __len__(self):
+        return len(self._roi_data)
+
+    def __repr__(self):
+        return f'<RoiDict({self._roi_data})>'
 
     @property
     def is_copied(self):
@@ -55,17 +67,37 @@ class RoiDict(QObject):
     def save_state(self):
         if len(self._roi_data):
             self._fm.rois_data[self._current_key] = self._roi_data
+            self.log.debug(f'Roi data {self._current_key} saved.')
         else:
             del self._fm.rois_data[self._current_key]
+            self.log.debug(f'Empty roi data {self._current_key} deleted.')
+
+    @_check_non_empty
+    def save_folder(self):
+        if self._meta_data and len(self._meta_data):
+            self._fm.rois_meta_data[self._meta_data.folder_key] = self._meta_data
+            self.log.debug(f'Roi meta data for {self._meta_data.folder_key} saved.')
 
     def clear(self):
         if len(self._roi_data):
             self.sig_roi_deleted.emit(tuple(self.keys()))
             self._roi_data.clear()
+            self.log.debug(f'Roi dict cleared.')
 
     def save_and_clear(self):
         self.save_state()
         self.clear()
+
+    @pyqtSlot(object, name='changeFolder')
+    def change_folder(self, folder_key: FolderKey):
+        self.save_folder()
+
+        if folder_key:
+            self._meta_data = self._fm.rois_meta_data[folder_key] or RoiMetaData(folder_key)
+            self.log.debug(f'Loaded roi meta data {folder_key}.')
+        else:
+            self._meta_data = None
+            self.log.debug(f'Empty folder selected')
 
     def change_image(self, image_key: ImageKey):
         self.clear()
@@ -73,68 +105,14 @@ class RoiDict(QObject):
         if not self._current_key:
             return
         self._update()
-
-    # def _update_real_time(self):
-    #
-    #     roi_data = self._fm.rois_data[self._current_key] or RoiData()
-    #     prev_key = self._current_key.get_previous()
-    #     if prev_key:
-    #         prev_data = self._fm.rois_data[prev_key] or RoiData()
-    #     else:
-    #         prev_data = RoiData()
-    #
-    #     self._merge_data(roi_data, prev_data)
+        self.sig_deleted_rois_updated.emit(tuple(self._meta_data.get_deleted_rois(self._current_key)))
 
     def _update(self):
         self._roi_data = self._fm.rois_data[self._current_key] or RoiData()
         self._roi_data.change_ring_bounds(self._geometry_holder.geometry.ring_bounds)
+        self._meta_data.update_metadata(self._roi_data, self._current_key)
         if len(self._roi_data):
             self.sig_roi_created.emit(tuple(self.keys()))
-
-    def _merge_data(self, roi_data: RoiData, prev_data: RoiData = None):
-        prev_data = prev_data or {}
-
-        to_move = []
-        to_create = []
-        to_delete = []
-
-        def _add_roi(roi_):
-            key_ = roi_.key
-            if key_ in self.keys():
-                prev_roi = self[key_]
-                if prev_roi.deleted and roi_.deleted:
-                    pass
-                elif prev_roi.deleted and not roi_.deleted:
-                    to_create.append(key_)
-                elif not prev_roi.deleted and not roi_.deleted:
-                    to_move.append(key_)
-                elif not prev_roi.deleted and roi_.deleted:
-                    to_delete.append(key_)
-                roi_.active = prev_roi.active
-                prev_roi.update(roi_)
-
-            else:
-                self._roi_data.add_roi(roi_)
-                if not roi_.deleted:
-                    to_create.append(key_)
-
-        for key in set(roi_data.keys()).union(prev_data.keys()).union(self.keys()):
-            if key in roi_data:
-                _add_roi(roi_data[key])
-            elif key in prev_data:
-                _add_roi(prev_data[key])
-            else:
-                roi = self[key]
-                if not roi.deleted:
-                    roi.deleted = True
-                    to_delete.append(key)
-
-        if to_move:
-            self.sig_roi_moved.emit(tuple(to_move), self.EMIT_NAME)
-        if to_create:
-            self.sig_roi_created.emit(tuple(to_create))
-        if to_delete:
-            self.sig_roi_deleted.emit(tuple(to_delete))
 
     @property
     def selected_rois(self) -> List[Roi]:
@@ -157,6 +135,7 @@ class RoiDict(QObject):
         change_select = self._roi_data.select(key)
         if change_select:
             self.sig_selected.emit(change_select)
+            self.log.info(f'Select status changed: {change_select}')
             if self._roi_data.selected_num == 1:
                 self.sig_one_selected.emit(next(iter(self._roi_data.selected_keys)))
 
@@ -164,6 +143,7 @@ class RoiDict(QObject):
     def shift_select(self, key: int):
         self._roi_data.shift_select(key)
         self.sig_selected.emit((key,))
+        self.log.info(f'Select status changed: {key}')
         if self._roi_data.selected_num == 1:
             self.sig_one_selected.emit(next(iter(self._roi_data.selected_keys)))
 
@@ -171,6 +151,7 @@ class RoiDict(QObject):
     @_check_non_empty
     def select_all(self) -> None:
         self._emit_select(self._roi_data.select_all())
+        self.log.info(f'Select status changed (select all)')
 
     @pyqtSlot(name='unselectAll')
     @_check_non_empty
@@ -185,21 +166,22 @@ class RoiDict(QObject):
 
     @pyqtSlot(int, str, name='changeName')
     def change_name(self, key: int, name: str):
-        try:
-            self[key].name = name
-            self.sig_roi_renamed.emit(key)
-        except KeyError:
-            return
+        self._meta_data.rename(self[key], name)
+        self.sig_roi_renamed.emit(key)
+        self.log.info(f'Roi {key} renamed to {name}')
 
-    def _emit_select(self, keys: List[int]):
+    def _emit_select(self, keys: Iterable[int]):
         if keys:
+            self.log.debug(f'Emit select {keys}')
             self.sig_selected.emit(tuple(keys))
         if self._roi_data.selected_num == 1:
+            self.log.debug(f'Emit select one {keys}')
             self.sig_one_selected.emit(next(iter(self._roi_data.selected_keys)))
 
     @pyqtSlot(object, name='addRoi')
     @_check_non_empty
     def add_roi(self, roi: Roi) -> None:
+        self._meta_data.add_roi(roi, self._current_key)
         self._roi_data.add_roi(roi)
         if roi.type == RoiTypes.ring and (roi.angle, roi.angle_std) != self.ring_bounds:
             roi.angle, roi.angle_std = self.ring_bounds
@@ -208,13 +190,16 @@ class RoiDict(QObject):
             self._emit_select((roi.key,))
 
     def add_rois(self, roi_list: List[Roi]):
+        self._meta_data.add_rois(roi_list, self._current_key)
         to_select = self._roi_data.add_rois(roi_list)
+        self.log.debug(f'Add {len(roi_list)} rois.')
         self.sig_roi_created.emit(tuple(roi.key for roi in roi_list))
         self._emit_select(to_select)
 
     @_check_non_empty
     def delete_roi(self, key: int):
         self._roi_data.delete_roi(key)
+        self._meta_data.delete_roi(key, self._current_key)
         self.sig_roi_deleted.emit((key,))
 
     @_check_non_empty
@@ -223,10 +208,8 @@ class RoiDict(QObject):
         d.update(params)
         if radius and width:
             d.update(radius=radius, width=width)
-        roi = self._roi_data.create_roi(**d)
-        self.sig_roi_created.emit((roi.key,))
-        if roi.active:
-            self._emit_select((roi.key,))
+        roi = Roi(**d)
+        self.add_roi(roi)
         return roi
 
     @pyqtSlot(tuple, name='change_ring_bounds')

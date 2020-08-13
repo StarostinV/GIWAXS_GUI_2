@@ -13,12 +13,93 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+# class ChainProperties(object):
+#     """
+#     ChainProperties provides a functionality to simplify setting
+#     a choice of several options.
+#
+#     >>> class MyChainProperty(ChainProperties):
+#     ...     _PROPERTY_DICT = {'a': 0, 'b': 1, 'c': 2}
+#     ...
+#     >>>
+#     >>> my_chain_property = MyChainProperty()
+#     >>> my_chain_property.properties
+#     ()
+#     >>> my_chain_property.a
+#     MyChainProperty(a)
+#     >>> my_chain_property.b.c
+#     MyChainProperty(a, b, c)
+#     >>> my_chain_property.properties
+#     (0, 1, 2)
+#     >>> MyChainProperty().a.b.c
+#     MyChainProperty(a, b, c)
+#
+#     It can be initialized with a dictionary as a constructor parameter
+#     >>> another_chain_property = ChainProperties({'a': 0, 'b': 1, 'c': 2})
+#     >>> another_chain_property.a.properties
+#     (0,)
+#
+#     >>> another_chain_property.clear().properties
+#     ()
+#
+#     >>> len(MyChainProperty())
+#     0
+#     >>> len(MyChainProperty().a.b)
+#     2
+#     >>> bool(MyChainProperty())
+#     False
+#     >>> bool(MyChainProperty().a)
+#     True
+#     """
+#
+#     _PROPERTY_DICT = {}
+#     __slots__ = ('_chosen_params', '_chosen_values')
+#
+#     def __init__(self, params_dict: dict = None):
+#         if params_dict:
+#             self._PROPERTY_DICT.update(params_dict)
+#         self._chosen_params = []
+#         self._chosen_values = []
+#
+#         for prop in self._PROPERTY_DICT.keys():
+#             setattr(self.__class__, prop, property(self._prop_factory(prop)))
+#
+#     def _prop_factory(self, prop):
+#         def func(*args, **kwargs):
+#             if prop not in self._chosen_params:
+#                 self._chosen_params.append(prop)
+#                 self._chosen_values.append(self._PROPERTY_DICT[prop])
+#
+#             return self
+#
+#         return func
+#
+#     @property
+#     def properties(self):
+#         return tuple(self._chosen_values)
+#
+#     def __len__(self):
+#         return len(self._chosen_values)
+#
+#     def __bool__(self):
+#         return len(self) > 0
+#
+#     def __repr__(self):
+#         properties = ', '.join(self._chosen_params)
+#         return f'{self.__class__.__name__}({properties})'
+#
+#     def clear(self):
+#         self._chosen_params.clear()
+#         self._chosen_values.clear()
+#         return self
+
+
 class SingletonMeta(type):
     _instance = None
 
-    def __call__(cls):
+    def __call__(cls, *args, **kwargs):
         if cls._instance is None:
-            cls._instance = super().__call__()
+            cls._instance = super().__call__(*args, **kwargs)
         return cls._instance
 
 
@@ -101,3 +182,9 @@ class Worker(QRunnable):
                 self.signals.finished.emit()
             except RuntimeError:
                 return
+
+#
+# if __name__ == "__main__":
+#     import doctest
+#
+#     doctest.testmod()

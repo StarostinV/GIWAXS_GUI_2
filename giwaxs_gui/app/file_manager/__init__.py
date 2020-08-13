@@ -23,6 +23,7 @@ from .read_fits import _ReadFits
 
 class FileManager(QObject):
     sigActiveImageChanged = pyqtSignal(object)
+    sigActiveFolderChanged = pyqtSignal(object)
     sigProjectClosed = pyqtSignal()
     sigProjectIsClosing = pyqtSignal()
     sigProjectOpened = pyqtSignal()
@@ -31,18 +32,23 @@ class FileManager(QObject):
 
     log = logging.getLogger(__name__)
 
-    def __init__(self):
+    def __init__(self, config_path: Path = None):
         QObject.__init__(self)
-        self.config: _GlobalConfigManager = _GlobalConfigManager()
+        self.config: _GlobalConfigManager = _GlobalConfigManager(config_path)
         self.recent_projects: List[Path] = self.config.get_project_paths()
         self._project_folder: Path or None = None
         self._project_structure: ProjectStructure = ProjectStructure()
         self.project_name: str = None
-        self._current_key: ImageKey = None
+        self._current_key: ImageKey or None = None
 
         self.recent_projects = [p for p in self.recent_projects if p.is_dir()]
 
         # self.open_latest_available_project()
+
+    @property
+    def current_key(self) -> ImageKey or None:
+        # TODO what class should be in response for this state?
+        return self._current_key
 
     def open_latest_available_project(self):
         self.close_project()
@@ -56,22 +62,34 @@ class FileManager(QObject):
                     self.log.exception(err)
 
     @property
-    def project_opened(self):
+    def project_opened(self) -> bool:
         return self._project_structure.project_opened
 
-    def change_image(self, key: ImageKey):
+    @property
+    def root(self) -> ProjectRootKey or None:
+        return self._project_structure.root
+
+    @property
+    def project_path(self) -> Path or None:
+        return self._project_folder
+
+    def change_image(self, key: ImageKey) -> None:
         if key != self._current_key:
+            if not key or not self._current_key or key.parent != self._current_key.parent:
+                new_parent = key.parent if key else None
+                self.sigActiveFolderChanged.emit(new_parent)
+
             self._current_key = key
             self.sigActiveImageChanged.emit(key)
 
-    def open_project(self, path: Path):
+    def open_project(self, path: Path) -> None:
         if path == self._project_folder:
             return
         self.close_project()
         self._init_project(path)
         self.sigProjectOpened.emit()
 
-    def add_root_path_to_project(self, path: Path):
+    def add_root_path_to_project(self, path: Path) -> None:
         if not self.project_opened:
             return
         key = self._project_structure.root.add_path(path)
@@ -80,7 +98,7 @@ class FileManager(QObject):
         elif isinstance(key, FolderKey):
             self.sigNewFolder.emit(key)
 
-    def remove_key(self, key):
+    def remove_key(self, key) -> None:
         self._project_structure.root.remove_key(key)
         if isinstance(key, ImageKey):
             self._delete_image_data(key)
@@ -100,6 +118,8 @@ class FileManager(QObject):
         # TODO find all fits by image key (?)
 
     def _delete_folder(self, key: FolderKey):
+        # TODO delete folder-level data
+
         for folder in key.folder_children:
             self._delete_folder(folder)
         for image in key.image_children:
@@ -115,6 +135,15 @@ class FileManager(QObject):
             self.project_name = None
             self.sigProjectClosed.emit()
 
+    def delete_project(self, project_path: Path):
+        if self._project_folder == project_path:
+            raise ValueError('Cannot delete opened project.')
+
+        if project_path in self.recent_projects:
+            self.recent_projects.remove(project_path)
+
+        _delete_project(project_path)
+
     def _init_project(self, path: Path):
         self._project_folder = path
         self._project_folder.mkdir(parents=False, exist_ok=True)
@@ -124,6 +153,7 @@ class FileManager(QObject):
         self.geometries: _ReadGeometry = _ReadGeometry(self._project_structure)
         self.polar_images: _ReadPolarImage = _ReadPolarImage(self._project_structure)
         self.rois_data: _ReadRoiData = _ReadRoiData(self._project_structure)
+        self.rois_meta_data: _ReadMetaData = _ReadMetaData(self._project_structure)
         self.fits: _ReadFits = _ReadFits(self._project_structure)
         self.profiles: _ReadRadialProfile = _ReadRadialProfile(self._project_structure)
         self.project_name = self._project_folder.name
@@ -134,6 +164,7 @@ class FileManager(QObject):
             self.sigNewFile.emit(key)
 
     def save_as_h5(self, h5path: Path):
+        # TODO remove and use data_manager
         with File(str(h5path.resolve()), 'w') as f:
             f.attrs[PROJECT_KEY] = True
         self._save_folder_as_h5(h5path, self._project_structure.root)
@@ -151,13 +182,13 @@ class FileManager(QObject):
     def _save_image_as_h5(self, h5group: Group, image_key: ImageKey):
         img_group = h5group.create_group(_give_h5_name(h5group, image_key.name))
         img_group.attrs[IMAGE_PROJECT_KEY] = True
-        self.images._set_h5(img_group, image_key, image_key.get_image())
+        self.images.set_h5(img_group, image_key, image_key.get_image())
         roi_data = self.rois_data[image_key]
         if roi_data:
-            self.rois_data._set_h5(img_group, image_key, roi_data)
-        geometry = self.geometries[image_key] or self.geometries.default[image_key]
+            self.rois_data.set_h5(img_group, image_key, roi_data)
+        geometry = self.geometries[image_key] or self.geometries.default[image_key.parent]
         if geometry:
-            self.geometries._set_h5(img_group, image_key, geometry)
+            self.geometries.set_h5(img_group, image_key, geometry)
 
     def __len__(self):
         return len(self.paths)
@@ -176,3 +207,8 @@ def _give_h5_name(h5group: Group, name):
         if new_name not in h5group.keys():
             return new_name
         num += 1
+
+
+def _delete_project(project_path: Path):
+    # TODO implement project deletion
+    raise NotImplementedError

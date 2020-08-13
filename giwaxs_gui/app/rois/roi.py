@@ -22,6 +22,7 @@ class Roi:
     movable: bool = True
     fitted_parameters: dict = None
     active: bool = False
+    deleted: bool = False
 
     def update(self, other: 'Roi'):
         self.__dict__ = other.__dict__

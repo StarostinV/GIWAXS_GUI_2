@@ -7,16 +7,16 @@ class _ReadImage(_ReadNpy):
     NAME = 'images'
 
     @staticmethod
-    def _get_h5(h5group: Group, key):
+    def get_h5(h5group: Group, key):
         pass
 
     @staticmethod
-    def _set_h5(h5group: Group, key, image):
-        _ReadImage._del_h5(h5group, key)
+    def set_h5(h5group: Group, key, image):
+        _ReadImage.del_h5(h5group, key)
         h5group.create_dataset('image', data=image)
 
     @staticmethod
-    def _del_h5(h5group: Group, key):
+    def del_h5(h5group: Group, key):
         if 'image' in h5group.keys():
             del h5group['image']
 

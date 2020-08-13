@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from typing import Dict
+import logging
 
 from .abstract_roi_widget import AbstractRoiWidget
 from ...app.app import App
@@ -7,6 +8,8 @@ from ...app.rois.roi import Roi
 
 
 class AbstractRoiHolder(object):
+    log = logging.getLogger(__name__)
+
     def __init__(self, name: str):
         self._name = name
         self._roi_dict = App().roi_dict
@@ -31,8 +34,9 @@ class AbstractRoiHolder(object):
             for key in keys:
                 try:
                     self._roi_widgets[key].move_roi()
-                except KeyError:
-                    pass
+                except KeyError as err:
+                    self.log.error(f'Key error in {self.__class__.__name__}')
+                    self.log.exception(err)
 
     def _connect_roi_widget(self, roi_widget: AbstractRoiWidget):
         roi_widget.sigRoiMoved.connect(
@@ -42,28 +46,35 @@ class AbstractRoiHolder(object):
 
     def _update_select(self, keys: tuple):
         for key in keys:
-            self._roi_widgets[key].update_select()
+            try:
+                self._roi_widgets[key].update_select()
+            except KeyError as err:
+                self.log.error(f'Key error in {self.__class__.__name__}')
+                self.log.exception(err)
 
     def _delete_roi(self, keys: tuple):
         for key in keys:
             try:
                 self._delete_roi_widget(self._roi_widgets.pop(key))
-            except KeyError:
-                pass
+            except KeyError as err:
+                self.log.error(f'Key error in {self.__class__.__name__}')
+                self.log.exception(err)
 
     def _fix_rois(self, keys: tuple):
         for key in keys:
             try:
                 self._roi_widgets[key].fix()
-            except KeyError:
-                pass
+            except KeyError as err:
+                self.log.error(f'Key error in {self.__class__.__name__}')
+                self.log.exception(err)
 
     def _unfix_rois(self, keys: tuple):
         for key in keys:
             try:
                 self._roi_widgets[key].unfix()
-            except KeyError:
-                pass
+            except KeyError as err:
+                self.log.error(f'Key error in {self.__class__.__name__}')
+                self.log.exception(err)
 
     @abstractmethod
     def _delete_roi_widget(self, roi_widget) -> None:

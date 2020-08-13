@@ -5,13 +5,7 @@ from PyQt5.QtGui import QColor
 
 from .rois_context_menu import RoiContextMenu
 from ...app.rois.roi import Roi
-
-COLOR_DICT = dict(
-    default=QColor(0, 0, 255),
-    active=QColor(0, 128, 255),
-    fixed=QColor(0, 255, 0),
-    fixed_active=QColor(255, 0, 255)
-)
+from ..tools import DummySignal
 
 
 def _color_key(roi: Roi) -> str:
@@ -27,6 +21,17 @@ def _color_key(roi: Roi) -> str:
 class AbstractRoiWidget(object):
     BRIGHT_COLOR: bool = True
 
+    COLOR_DICT = dict(
+        default=QColor(0, 0, 255),
+        active=QColor(0, 128, 255),
+        fixed=QColor(0, 255, 0),
+        fixed_active=QColor(255, 0, 255)
+    )
+
+    sigRoiMoved = DummySignal()
+    sigSelected = DummySignal()
+    sigShiftSelected = DummySignal()
+
     def __init__(self, roi: Roi, enable_context: bool = False, context_menu: Callable[[Roi], None] = RoiContextMenu):
         self._roi = roi
         if enable_context:
@@ -35,7 +40,7 @@ class AbstractRoiWidget(object):
             self._context_menu = None
 
     def update_color(self):
-        color = COLOR_DICT[_color_key(self.roi)]
+        color = self.COLOR_DICT[_color_key(self.roi)]
         if not self.BRIGHT_COLOR:
             color.setAlpha(150)
         self.set_color(color)
@@ -86,6 +91,12 @@ class AbstractRoiWidget(object):
 
     def unfix(self):
         self.update_color()
+
+    def rename(self):
+        pass
+
+    def change_type(self):
+        pass
 
     # def show_roi(self):
     #     self.show()

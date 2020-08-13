@@ -1,26 +1,43 @@
 from h5py import Group
 
 from .object_file_manager import _ObjectFileManager
-from ..rois.roi_meta_data import RoiMetaData
+from .keys import RemoveWeakrefs, FolderKey
+
+
+# dirty way to handle circular import
+
+class ImportManager(object):
+    _class = None
+
+    @classmethod
+    def RoiMetaData(cls):
+        if not cls._class:
+            from ..rois import RoiMetaData
+            cls._class = RoiMetaData
+        return cls._class
 
 
 class _ReadMetaData(_ObjectFileManager):
+    NAME = 'rois_meta_data'
 
-    def _get_path(self, key):
-        return super()._get_path(key.parent)
+    def __getitem__(self, item: FolderKey):
+        roi_meta_data = super().__getitem__(item)
+        if roi_meta_data:
+            roi_meta_data.folder_key = item.clean_copy()
+        return roi_meta_data
 
-    @staticmethod
-    def _get_h5(h5group: Group, key):
-        folder_key = key.parent
-        if not folder_key:
-            return
-
-        return RoiMetaData.from_h5(folder_key, h5group.parent)
-
-    @staticmethod
-    def _set_h5(h5group: Group, key, value: RoiMetaData):
-        value.to_h5(h5group.parent)
+    def __setitem__(self, key: FolderKey, value):
+        with RemoveWeakrefs(value.folder_key):
+            super().__setitem__(key, value)
 
     @staticmethod
-    def _del_h5(h5group: Group, key):
-        RoiMetaData.del_h5(h5group.parent)
+    def get_h5(h5group: Group, key: FolderKey):
+        return ImportManager.RoiMetaData().from_h5(key, h5group)
+
+    @staticmethod
+    def set_h5(h5group: Group, key: FolderKey, value: 'RoiMetaData'):
+        value.to_h5(h5group)
+
+    @staticmethod
+    def del_h5(h5group: Group, key):
+        ImportManager.RoiMetaData().del_h5(h5group)

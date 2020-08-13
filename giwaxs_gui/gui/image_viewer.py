@@ -18,7 +18,24 @@ from .tools import Icon, center_widget
 logger = logging.getLogger(__name__)
 
 
-class GiwaxsImageViewer(AbstractRoiHolder, CustomImageViewer):
+class ImageViewer(AbstractRoiHolder, CustomImageViewer):
+    def __init__(self, parent=None):
+        AbstractRoiHolder.__init__(self, 'ImageViewer')
+        CustomImageViewer.__init__(
+            self, parent)
+        self.image_plot.getAxis('bottom').setLabel(text='<math>Q<sub>xy</sub></math>', color='white')
+        self.image_plot.getAxis('left').setLabel(text='<math>Q<sub>z</sub></math>', color='white')
+
+    def _make_roi_widget(self, roi: Roi):
+        roi_widget = Roi2DRing(roi)
+        self.image_plot.addItem(roi_widget)
+        return roi_widget
+
+    def _delete_roi_widget(self, roi_widget: Roi2DRing):
+        self.image_plot.removeItem(roi_widget)
+
+
+class MainImageViewer(ImageViewer):
     class BeamCenterRoi(CircleROI):
         _ROI_SIZE = 1
 
@@ -33,7 +50,7 @@ class GiwaxsImageViewer(AbstractRoiHolder, CustomImageViewer):
             self._center = value
             radius = self.size().x() / 2
             pos = (value[1] - radius, value[0] - radius)
-            super(GiwaxsImageViewer.BeamCenterRoi, self).setPos(
+            super(MainImageViewer.BeamCenterRoi, self).setPos(
                 pos, y, update, finish)
 
         def set_size(self, size: float = None):
@@ -47,11 +64,8 @@ class GiwaxsImageViewer(AbstractRoiHolder, CustomImageViewer):
             self.set_size()
 
     def __init__(self, parent=None):
-        AbstractRoiHolder.__init__(self, 'ImageViewer')
-        CustomImageViewer.__init__(
-            self, parent)
-        self.image_plot.getAxis('bottom').setLabel(text='<math>Q<sub>xy</sub></math>', color='white')
-        self.image_plot.getAxis('left').setLabel(text='<math>Q<sub>z</sub></math>', color='white')
+        super().__init__(parent)
+
         self.app = App()
 
         self._draw_roi = ImageDrawRoiController(self.view_box, self)
@@ -74,14 +88,6 @@ class GiwaxsImageViewer(AbstractRoiHolder, CustomImageViewer):
         image = self.app.image
         if image is not None:
             self.set_data(image)
-
-    def _make_roi_widget(self, roi: Roi):
-        roi_widget = Roi2DRing(roi)
-        self.image_plot.addItem(roi_widget)
-        return roi_widget
-
-    def _delete_roi_widget(self, roi_widget: Roi2DRing):
-        self.image_plot.removeItem(roi_widget)
 
     def __init_center_roi(self):
         beam_center = tuple(self.app.geometry.beam_center)
@@ -216,7 +222,7 @@ class Basic2DImageWidget(QMainWindow):
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
         self.app = App()
-        self.image_viewer = GiwaxsImageViewer(self)
+        self.image_viewer = MainImageViewer(self)
         self.setCentralWidget(self.image_viewer)
         self._init_toolbar()
 

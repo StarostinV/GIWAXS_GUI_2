@@ -38,7 +38,7 @@ class GeometryHolder(QObject):
         self.sigTransformed.emit()
 
     def get_geometry(self, image_key: ImageKey):
-        return self._fm.geometries[image_key] or self._fm.geometries.default[image_key] or Geometry()
+        return self._fm.geometries[image_key] or self._fm.geometries.default[image_key.parent] or Geometry()
 
     @property
     def geometry(self) -> Geometry:
@@ -58,7 +58,7 @@ class GeometryHolder(QObject):
         if not self._current_key:
             return
 
-        self._default_geometry = self._fm.geometries.default[image_key] or Geometry()
+        self._default_geometry = self._fm.geometries.default[image_key.parent] or Geometry()
         self._current_geometry = self._fm.geometries[image_key]
 
         if image is not None:
@@ -70,7 +70,7 @@ class GeometryHolder(QObject):
     def save_as_default(self):
         if self._current_geometry and self._current_key:
             self._default_geometry = self._current_geometry
-            self._fm.geometries.default[self._current_key] = self._current_geometry
+            self._fm.geometries.default[self._current_key.parent] = self._current_geometry
             del self._fm.geometries[self._current_key]
             self._current_geometry = None
             self.log.info('Geometry saved as default.')
@@ -82,7 +82,7 @@ class GeometryHolder(QObject):
             self.log.info('Geometry not saved (default used)')
             return
 
-        if not self._fm.geometries.default[self._current_key]:
+        if not self._fm.geometries.default[self._current_key.parent]:
             self.save_as_default()
         elif self._current_geometry != self._default_geometry:
             self._fm.geometries[self._current_key] = self._current_geometry

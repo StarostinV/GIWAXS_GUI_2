@@ -37,6 +37,7 @@ class FolderItem(QStandardItem):
         self._updated: bool = False
 
     def on_clicked(self):
+        # TODO: _update field duplicate FolderKey functionality and should be removed
         if not self._updated:
             self.update()
         self._updated = True

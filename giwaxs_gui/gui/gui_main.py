@@ -242,8 +242,7 @@ class GIWAXSMainWindow(QMainWindow):
 
         # Save
 
-        self.save_menu = self.file_menu.addMenu('Save project as ...')
-        self.save_menu.addAction('Save as h5 file', self._save_as_h5)
+        self.save_action = self.file_menu.addAction('Save project ...', lambda *x: self.dock_area.open_save_window())
 
         # Close project
 

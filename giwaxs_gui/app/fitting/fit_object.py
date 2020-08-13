@@ -43,6 +43,8 @@ class FitObject(object):
         if saved_profile:
             self.set_profile(saved_profile, update_baseline)
 
+    # profile methods:
+
     def set_profile(self, saved_profile: SavedProfile, update_baseline: bool = False):
         if np.any(saved_profile.x != self.r_axis):
             return
@@ -83,6 +85,8 @@ class FitObject(object):
     def clear_profile(self):
         self.saved_profile = None
         self.r_profile = self.polar_image.sum(axis=0)
+
+    # fit methods:
 
     def add_fit(self, fit: Fit):
         self.fits[fit.roi.key] = fit
@@ -125,22 +129,13 @@ class FitObject(object):
             for fit in self.fits.values():
                 self._update_fit_data(fit, update_r_range, update_fit=update_fit, **kwargs)
 
-    def _update_fit_data(self, fit: Fit, update_r_range: bool = True, *, update_fit: bool = False, **kwargs):
-        if update_r_range and fit.range_strategy.strategy_type.value == RangeStrategyType.adjust.value:
-            fit.r_range = r1, r2 = self._get_r_range(fit.roi, fit.range_strategy.range_factor)
-        else:
-            r1, r2 = fit.r_range
-        x1, x2 = self._get_r_coords(r1), self._get_r_coords(r2)
-        fit.x, fit.y = self._get_x_y(fit.roi, x1, x2, fit.sigma)
-
-        if update_fit:
-            fit.update_fit(**kwargs)
-
     def remove_fit(self, fit: Fit):
         try:
             del self.fits[fit.roi.key]
         except KeyError:
             return
+
+    # fit properties:
 
     def set_sigma(self, sigma: float, fit: Fit = None):
         if fit:
@@ -152,15 +147,6 @@ class FitObject(object):
             for fit in self.fits.values():
                 if fit.sigma is None:
                     self.update_fit_data(fit, update_fit=True)
-
-    def _update_default_sigma(self, sigma: float):
-        self.default_sigma = sigma
-        self.r_profile = smooth_curve(self.polar_image.sum(axis=0), sigma)
-
-        if self.saved_profile:
-            self.saved_profile.sigma = sigma
-            if self.saved_profile.baseline is not None:
-                self.r_profile = self.r_profile - self.saved_profile.baseline
 
     def set_range_strategy(self, range_strategy: RangeStrategy, fit: Fit = None, update: bool = True):
         if fit:
@@ -197,6 +183,28 @@ class FitObject(object):
             for fit in self.fits.values():
                 if fit.fitting_function.is_default:
                     fit.set_function(fitting_function(), update)
+
+    # private
+
+    def _update_fit_data(self, fit: Fit, update_r_range: bool = True, *, update_fit: bool = False, **kwargs):
+        if update_r_range and fit.range_strategy.strategy_type.value == RangeStrategyType.adjust.value:
+            fit.r_range = r1, r2 = self._get_r_range(fit.roi, fit.range_strategy.range_factor)
+        else:
+            r1, r2 = fit.r_range
+        x1, x2 = self._get_r_coords(r1), self._get_r_coords(r2)
+        fit.x, fit.y = self._get_x_y(fit.roi, x1, x2, fit.sigma)
+
+        if update_fit:
+            fit.update_fit(**kwargs)
+
+    def _update_default_sigma(self, sigma: float):
+        self.default_sigma = sigma
+        self.r_profile = smooth_curve(self.polar_image.sum(axis=0), sigma)
+
+        if self.saved_profile:
+            self.saved_profile.sigma = sigma
+            if self.saved_profile.baseline is not None:
+                self.r_profile = self.r_profile - self.saved_profile.baseline
 
     # Private methods for calculating geometric properties
 

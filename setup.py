@@ -19,7 +19,7 @@ def get_version():
     if mo:
         return mo.group(1)
     else:
-        raise RuntimeError("Unable to find version string in %s." % (version_file,))
+        raise RuntimeError(f'Unable to find version string in {version_file}.')
 
 
 setup(

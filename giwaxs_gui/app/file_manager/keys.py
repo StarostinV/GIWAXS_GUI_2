@@ -74,6 +74,10 @@ class AbstractKey(object):
         pass
 
     @abstractmethod
+    def __hash__(self):
+        pass
+
+    @abstractmethod
     def is_valid(self) -> bool:
         pass
 
@@ -174,6 +178,10 @@ class ImageKey(AbstractKey):
     def get_image(self):
         pass
 
+    def clean_copy(self):
+        with RemoveWeakrefs(self, restore=True):
+            return deepcopy(self)
+
     def __contains__(self, item):
         if self == item:
             return True
@@ -201,6 +209,9 @@ class PathKey(AbstractKey):
             return self._path == other._path
         else:
             return False
+
+    def __hash__(self):
+        return hash(self._path)
 
     def __repr__(self):
         return self.name
@@ -240,6 +251,9 @@ class H5Key(AbstractKey):
                     self._h5key == other._h5key)
         else:
             return False
+
+    def __hash__(self):
+        return hash((self._h5path, self._h5key))
 
     def __repr__(self):
         return self.name
@@ -294,7 +308,7 @@ class FolderH5Key(FolderKey, H5Key):
 
 
 class FolderPathKey(FolderKey, PathKey):
-    def __init__(self, parent: 'FolderKey', *, path: Path):
+    def __init__(self, parent: FolderKey, *, path: Path):
         super().__init__(parent, path=path)
 
     def update(self):
@@ -315,7 +329,7 @@ class FolderPathKey(FolderKey, PathKey):
 
 
 class ImagePathKey(ImageKey, PathKey):
-    def __init__(self, parent: FolderPathKey, *,
+    def __init__(self, parent: FolderKey, *,
                  path: Path, idx: int = None):
         super().__init__(parent, path=path, idx=idx)
 

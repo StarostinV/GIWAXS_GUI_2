@@ -3,5 +3,6 @@ __pycache__/
 out/
 *.ipynb
 *.giwaxs
-config/
-tests/
+*.h5
+user_config/
+data/

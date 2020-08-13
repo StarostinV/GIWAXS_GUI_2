@@ -8,7 +8,6 @@ from .roi import Roi, RoiTypes
 class RoiData(dict):
     def __init__(self, rois: List[Roi] = None):
         super().__init__()
-        self._new_key = 0
         self._selected_keys = set()
         if rois:
             self.add_rois(rois)
@@ -72,22 +71,18 @@ class RoiData(dict):
         return to_unselect
 
     def add_roi(self, roi: Roi) -> None:
-        if roi.key is None or roi.key < 0:
-            roi.key = self._new_key
-            self._new_key += 1
         self[roi.key] = roi
 
         if roi.active:
             self._selected_keys.add(roi.key)
-        if not roi.name:
-            roi.name = str(roi.key)
 
     def add_rois(self, roi_list: List[Roi]) -> List[int]:
         keys = list()
         to_select = list()
         for roi in roi_list:
-            self.add_roi(roi)
+            self[roi.key] = roi
             if roi.active:
+                self._selected_keys.add(roi.key)
                 to_select.append(roi.key)
             keys.append(roi.key)
         return to_select
@@ -97,11 +92,6 @@ class RoiData(dict):
 
         if k in self._selected_keys:
             self._selected_keys.remove(k)
-
-    def create_roi(self, radius: float, width: float, **params) -> Roi:
-        roi = Roi(radius, width, **params)
-        self.add_roi(roi)
-        return roi
 
     def clear(self):
         super().clear()
