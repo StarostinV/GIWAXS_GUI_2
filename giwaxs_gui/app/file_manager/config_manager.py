@@ -5,10 +5,12 @@ from typing import List
 
 
 class _GlobalConfigManager(object):
-    config_folder: Path = Path(__file__).parents[2] / 'config'
+    config_folder: Path = Path(__file__).parents[3] / 'user_config'
     log = logging.getLogger(__name__)
 
-    def __init__(self):
+    def __init__(self, config_path: Path = None):
+        if config_path:
+            self.config_folder = config_path
         if not self.config_folder.is_dir():
             self.config_folder.mkdir(parents=False)
         self._saved_projects_path = str((self.config_folder / 'recent_projects').resolve())
