@@ -56,15 +56,15 @@ class _ObjectFileManager(object):
             path.unlink()
 
     @staticmethod
-    def _get_h5(h5group: Group, key: ImageKey):
+    def get_h5(h5group: Group, key: ImageKey):
         pass
 
     @staticmethod
-    def _set_h5(h5group: Group, key: ImageKey, *args, **kwargs):
+    def set_h5(h5group: Group, key: ImageKey, *args, **kwargs):
         pass
 
     @staticmethod
-    def _del_h5(h5group: Group, key: ImageKey):
+    def del_h5(h5group: Group, key: ImageKey):
         pass
 
     def _process_h5_group(self, h5path: Path, h5key: str, func, *args, **kwargs):
@@ -94,23 +94,23 @@ class _ObjectFileManager(object):
         if not key.is_project:
             return self._get_pickle(self._get_path(key))
         if self.project_structure.config[key.h5path]:
-            return self._process_h5_group(key.h5path, key.h5key, self._get_h5, key)
+            return self._process_h5_group(key.h5path, key.h5key, self.get_h5, key)
         res = self._get_pickle(self._get_path(key))
         if res is not None:
             return res
-        return self._process_h5_group(key.h5path, key.h5key, self._get_h5, key)
+        return self._process_h5_group(key.h5path, key.h5key, self.get_h5, key)
 
     def __delitem__(self, key):
         if not key.is_project:
             return self._del_pickle(self._get_path(key))
         if self.project_structure.config[key.h5path]:
-            return self._process_h5_group(key.h5path, key.h5key, self._del_h5, key)
+            return self._process_h5_group(key.h5path, key.h5key, self.del_h5, key)
         else:
             return self._del_pickle(self._get_path(key))
 
     def __setitem__(self, key, value):
         if key.is_project and self.project_structure.config[key.h5path]:
-            return self._process_h5_group(key.h5path, key.h5key, self._set_h5, key, value)
+            return self._process_h5_group(key.h5path, key.h5key, self.set_h5, key, value)
         else:
             try:
                 return self._set_pickle(self._get_path(key), value)
