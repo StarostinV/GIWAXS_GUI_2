@@ -78,7 +78,7 @@ class DrawRoiController(ViewBoxMouseEvents):
         self._pressed: bool = False
 
     def mousePressEvent(self, ev) -> bool:
-        if ev.button() == Qt.LeftButton and ev.modifiers() == Qt.ControlModifier:
+        if ev.button() == Qt.LeftButton and int(ev.modifiers()) == (Qt.ControlModifier + Qt.AltModifier):
             self._init_point = self._view_box.mapToView(ev.pos())
             self._roi = self._init_roi()
             self._update_roi(self._init_point)
