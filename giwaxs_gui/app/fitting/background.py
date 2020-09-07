@@ -21,7 +21,7 @@ class Background(object):
 
     is_default: bool = True
 
-    AMP_PADDING: float = 1.1
+    AMP_PADDING: float = 1.
 
     @staticmethod
     @abstractmethod
