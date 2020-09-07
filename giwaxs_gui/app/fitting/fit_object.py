@@ -155,6 +155,7 @@ class FitObject(object):
             if update:
                 self.update_fit_data(fit, update_fit=True)
         else:
+            range_strategy.is_default = True
             self.default_range_strategy = range_strategy
             for fit in self.fits.values():
                 if fit.range_strategy.is_default:
@@ -172,6 +173,7 @@ class FitObject(object):
             for fit in self.fits.values():
                 if fit.background.is_default:
                     fit.set_background(background(), update)
+                    fit.background.is_default = True
 
     def set_function(self, fitting_type: FittingType, fit: Fit = None, update: bool = True):
         fitting_function = FITTING_FUNCTIONS[fitting_type]
@@ -183,6 +185,7 @@ class FitObject(object):
             for fit in self.fits.values():
                 if fit.fitting_function.is_default:
                     fit.set_function(fitting_function(), update)
+                    fit .fitting_function.is_default = True
 
     # private
 
