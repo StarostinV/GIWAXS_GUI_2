@@ -23,9 +23,16 @@ class OptionsWidget(QWidget):
         if self._current_format != save_format:
             self._current_format = save_format
             if save_format.value == SaveFormats.h5.value:
+                self.bool_options.setDisabled(False)
+                self.text_options.setHidden(True)
+            elif save_format.value == SaveFormats.text.value:
+                self.bool_options.setDisabled(False)
+                self.text_options.setHidden(False)
+            elif save_format.value == SaveFormats.object_detection.value:
+                self.bool_options.setDisabled(True)
                 self.text_options.setHidden(True)
             else:
-                self.text_options.setHidden(False)
+                raise ValueError(f'Unknown save format {save_format}.')
 
     def update_params(self, params: SavingParameters):
         self.bool_options.update_params(params)

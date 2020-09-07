@@ -2,17 +2,20 @@ from typing import List
 from pathlib import Path
 
 from h5py import File, Group
+import numpy as np
 
+from ..geometry import Geometry
 from .saving_parameters import SavingParameters, SaveMode
 from ..file_manager import (FileManager, FolderKey, ImageKey,
                             IMAGE_PROJECT_KEY, PROJECT_KEY)
 from ..image_holder import ImageHolder
+from .load_data import LoadData, ImageData, ImageDataFlags
 
 
 class SaveH5(object):
     def __init__(self, fm: FileManager, image_holder: ImageHolder):
         self._fm: FileManager = fm
-        self._image_holder: ImageHolder = image_holder
+        self._load_data = LoadData(fm, image_holder)
 
     def save(self, params: SavingParameters):
         filepath = _get_h5_path(params.path)
@@ -23,6 +26,41 @@ class SaveH5(object):
 
         for folder_key, image_keys in params.selected_images.items():
             self._save_folder_as_h5(path_str, folder_key, image_keys, params)
+
+    def save_for_object_detection(self, params: SavingParameters):
+        filepath = _get_h5_path(params.path)
+        count: int = 0
+
+        if not filepath.parent.exists():
+            raise IOError(f'Parent folder {filepath.parent} does not exist.')
+
+        path_str: str = str(filepath.resolve())
+
+        if filepath.exists():
+            with File(path_str, 'r') as f:
+                count = len(list(f.keys()))
+
+        with File(path_str, 'a') as f:
+            for _, image_keys in params.selected_images.items():
+                for image_key in image_keys:
+                    if self._save_image_for_object_detection(f, image_key, str(count)):
+                        count += 1
+
+    def _save_image_for_object_detection(self, f: File, image_key: ImageKey, name: str) -> bool:
+        image_data: ImageData = self._load_data.load_image_data(
+            image_key, flags=ImageDataFlags.POLAR_IMAGE | ImageDataFlags.GEOMETRY | ImageDataFlags.ROI_DATA)
+
+        if image_data.polar_image is None or image_data.roi_data is None or image_data.geometry is None:
+            return False
+
+        boxes, labels = _get_boxes_n_labels(image_data.roi_data.to_array(), image_data.geometry)
+
+        group = f.create_group(name)
+        group.create_dataset('polar_image', data=image_data.polar_image)
+        group.create_dataset('boxes', data=boxes)
+        group.create_dataset('labels', data=labels)
+
+        return True
 
     def _save_folder_as_h5(self, path: str, folder_key: FolderKey,
                            image_keys: List[ImageKey], params: SavingParameters):
@@ -58,7 +96,7 @@ class SaveH5(object):
         img_group = h5group.create_group(image_key.name)
         img_group.attrs[IMAGE_PROJECT_KEY] = True
 
-        _, polar_image, _ = self._image_holder.get_data_by_key(image_key)
+        polar_image = self._load_data.load_image_data(image_key, ImageDataFlags.POLAR_IMAGE).polar_image
 
         if params.save_image:
             self._fm.images.set_h5(img_group, image_key, image_key.get_image())
@@ -106,6 +144,18 @@ def _get_folder_group(f: File, name: str) -> Group:
     # TODO carefully handle name collisions by checking Path attribute (or any others)
     return f.create_group(name) if name not in f.keys() else f[name]
 
+
+def _get_boxes_n_labels(roi_data: np.ndarray, geometry: Geometry):
+    labels, boxes = [], []
+
+    for r, w, a, a_s, key, roi_type in roi_data:
+        x1, x2 = geometry.r2p(r - w / 2), geometry.r2p(r + w / 2)
+        y1, y2 = geometry.a2p(a - a_s / 2), geometry.a2p(a + a_s / 2)
+
+        labels.append(roi_type)
+        boxes.append([x1, y1, x2, y2])
+
+    return np.array(boxes), np.array(labels)
 
 # def _give_h5_name(h5group: Group, name):
 #     if name not in h5group.keys():

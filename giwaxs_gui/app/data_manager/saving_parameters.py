@@ -9,6 +9,7 @@ from ..file_manager import FolderKey, ImageKey
 class SaveFormats(Enum):
     h5 = 'H5 format'
     text = 'Text formats'
+    object_detection = 'For object detection'
 
 
 class TextFormats(Enum):

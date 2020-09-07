@@ -13,3 +13,5 @@ class SaveData(object):
     def save(self, params: SavingParameters):
         if params.format.value == SaveFormats.h5.value:
             self._save_h5.save(params)
+        elif params.format.value == SaveFormats.object_detection.value:
+            self._save_h5.save_for_object_detection(params)
