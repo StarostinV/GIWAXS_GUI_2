@@ -230,3 +230,10 @@ class Geometry(object):
         self._y = self._y * scale
         self._z = self._z * scale
         self._polar_aspect_ratio = self._polar_aspect_ratio / scale
+
+    def r2p(self, r):
+        return (r - self.r_range[0]) / (self.r_range[1] - self.r_range[0]) * self.polar_shape[1]
+
+    def a2p(self, a):
+        return (a / 180 * np.pi - self.phi_range[0]) / (self.phi_range[1] - self.phi_range[0]) * self.polar_shape[0]
+
