@@ -34,6 +34,8 @@ class RadialProfileWidget(AbstractRoiHolder, PlotBC):
         self._draw_roi.sigCreateRoi.connect(self.app.roi_dict.add_roi)
         self._draw_roi.sigMoveRoi.connect(self.app.roi_dict.move_roi)
 
+        self.register_key_patch()
+
         # self.image_view.plot_item.setTitle('Radial Profile')
         self.image_view.plot_item.getAxis('bottom').setLabel('|Q|', color='white', font_size='large')
         self.image_view.plot_item.getAxis('left').setLabel('Intensity', color='white', font_size='large')

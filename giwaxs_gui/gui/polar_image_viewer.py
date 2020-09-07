@@ -26,6 +26,8 @@ class PolarImageViewer(AbstractRoiHolder, QMainWindow):
         self._interpolation_params_dict: dict = InterpolateSetupWindow.get_config()
         self._image_viewer = CustomImageViewer(self)
 
+        self.register_key_patch()
+
         self._draw_roi = PolarDrawRoi(self._image_viewer.view_box, self)
         self._draw_roi.sigCreateRoi.connect(self.app.roi_dict.add_roi)
         self._draw_roi.sigMoveRoi.connect(self.app.roi_dict.move_roi)

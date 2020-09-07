@@ -2,7 +2,7 @@
 import logging
 
 from pyqtgraph import CircleROI
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton)
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton, QShortcut)
 from PyQt5.QtCore import pyqtSignal, Qt, QPointF
 
 import numpy as np
@@ -23,8 +23,8 @@ class ImageViewer(AbstractRoiHolder, CustomImageViewer):
         AbstractRoiHolder.__init__(self, 'ImageViewer')
         CustomImageViewer.__init__(
             self, parent)
-        self.image_plot.getAxis('bottom').setLabel(text='<math>Q<sub>xy</sub></math>', color='white')
-        self.image_plot.getAxis('left').setLabel(text='<math>Q<sub>z</sub></math>', color='white')
+        self.image_plot.getAxis('bottom').setLabel(text='<math>Q<sub>xy</sub>  (A<sup>-1</sup>) </math>', color='white')
+        self.image_plot.getAxis('left').setLabel(text='<math>Q<sub>z</sub>  (A<sup>-1</sup>) </math>', color='white')
 
     def _make_roi_widget(self, roi: Roi):
         roi_widget = Roi2DRing(roi)
@@ -67,11 +67,12 @@ class MainImageViewer(ImageViewer):
         super().__init__(parent)
 
         self.app = App()
-
+        self.register_key_patch()
         self._draw_roi = ImageDrawRoiController(self.view_box, self)
         self._draw_roi.sigCreateRoi.connect(self.app.roi_dict.add_roi)
         self._draw_roi.sigMoveRoi.connect(self.app.roi_dict.move_roi)
 
+        self._segments_hidden = False
         self._geometry_params_widget = None
         self.__init_center_roi()
         self.app.geometry_holder.sigScaleChanged.connect(self._on_scale_changed)
