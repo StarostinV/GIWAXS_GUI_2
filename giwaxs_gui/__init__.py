@@ -38,7 +38,7 @@ def main():
         print(__version__)
         return
 
-    level: int = logging.DEBUG #if args.debug else logging.ERROR
+    level: int = logging.DEBUG if args.debug else logging.ERROR
 
     exit_code: int = run(level)
 
