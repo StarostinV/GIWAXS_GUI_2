@@ -117,4 +117,9 @@ _PATH_MODE_DICT: Dict[tuple, PathLineModes] = {
 
 
 def _get_path_line_mode(save_format: SaveFormats, save_mode: SaveMode):
-    return _PATH_MODE_DICT[(save_format.value, save_mode.value)]
+    if save_format.value == SaveFormats.object_detection.value:
+        sf = SaveFormats.h5.value
+    else:
+        sf = save_format.value
+
+    return _PATH_MODE_DICT[(sf, save_mode.value)]
