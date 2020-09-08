@@ -125,11 +125,11 @@ class InitWindow(QWidget):
 
     def _create(self):
         try:
-            self.project_path.mkdir(parents=True, exist_ok=False)
+            self.project_path.mkdir(parents=True, exist_ok=True)
             self.sigOpenProject.emit(self.project_path.resolve())
-        except FileExistsError:
-            show_error(f'The folder {str(self.project_path.resolve())} already exists', error_title='Folder exists')
-            color_animation(self.file_line)
+        # except FileExistsError:
+        #     show_error(f'The folder {str(self.project_path.resolve())} already exists', error_title='Folder exists')
+        #     color_animation(self.file_line)
         except PermissionError:
             folder = get_folder_filepath(self, 'Permission denied, please, create a project folder manually',
                                          directory=str(Path('~').expanduser().resolve()))
