@@ -21,7 +21,6 @@ class SaveWindow(QWidget):
     def __init__(self, parent=None, saving_params: SavingParameters = None):
         super().__init__(parent)
         self.setWindowFlag(Qt.Window, True)
-        self.setWindowState(Qt.WindowMaximized)
         self.setWindowModality(Qt.WindowModal)
         self.setAttribute(Qt.WA_DeleteOnClose, True)
         self.app = App()
