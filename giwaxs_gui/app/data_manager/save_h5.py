@@ -60,6 +60,13 @@ class SaveH5(object):
         group.create_dataset('boxes', data=boxes)
         group.create_dataset('labels', data=labels)
 
+        group.attrs.update(file_key=str(image_key._file_key()))
+
+        try:
+            group.attrs.update(path=str(image_key.path))
+        except AttributeError:
+            pass
+
         return True
 
     def _save_folder_as_h5(self, path: str, folder_key: FolderKey,
