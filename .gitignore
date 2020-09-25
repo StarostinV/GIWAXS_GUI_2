@@ -6,3 +6,4 @@ out/
 *.h5
 user_config/
 data/
+examples/
