@@ -2,18 +2,39 @@
 import logging
 
 from pyqtgraph import CircleROI
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton, QShortcut)
-from PyQt5.QtCore import pyqtSignal, Qt, QPointF
+
+from PyQt5.QtWidgets import (
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QPushButton
+)
+from PyQt5.QtCore import (
+    pyqtSignal,
+    Qt,
+    QPointF
+)
 
 import numpy as np
 
 from ..app.rois.roi import Roi
 from ..app import App
 from ..app.transformations import Transformation
-from .basic_widgets import CustomImageViewer, LabeledSlider, BlackToolBar, DrawRoiController
+
+from .basic_widgets import (
+    CustomImageViewer,
+    LabeledSlider,
+    BlackToolBar,
+    DrawRoiController
+)
+
 from .roi_widgets.roi_2d_ring_widget import Roi2DRing
 from .roi_widgets.abstract_roi_holder import AbstractRoiHolder
-from .tools import Icon, center_widget
+
+from .tools import (
+    Icon,
+    center_widget
+)
 
 logger = logging.getLogger(__name__)
 
