@@ -5,15 +5,14 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QSizePolicy,
                              QApplication, QShortcut, QMessageBox,
                              QFileDialog)
 from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal,
-                          QObject, QThreadPool)
+                          QObject)
 from PyQt5.QtGui import QKeySequence
 
 import qdarkstyle
 import qdarkgraystyle
 
 from ..app import App
-from ..app.update import CheckVersionMessage, check_outdated, update_package
-from ..app.utils import Worker
+
 from ..__version import __version__
 
 from .dock_area import AppDockArea
@@ -23,9 +22,9 @@ from .tools import Icon, get_image_filepath, get_folder_filepath, save_file_dial
 from .init_window import InitWindow
 from .debug_widgets import DebugWindow
 from .exception_message import UncaughtHook
-from .notifications import (PopUpWrapper, NotificationTypes,
-                            CheckingVersion, AskRestart, UpdatingProgram,
-                            UpdateFailed, get_check_result_notification)
+from .notifications import PopUpWrapper
+from .background_tasks import BackgroundTasks
+from .background_update import BackgroundUpdate
 
 
 class GIWAXSMainController(QObject):
@@ -36,12 +35,9 @@ class GIWAXSMainController(QObject):
     def __init__(self):
         super().__init__()
         self.app = App()
-
-        if self.app.fm.config['is_updated']:
-            self.is_updated = True
-            del self.app.fm.config['is_updated']
-        else:
-            self.is_updated = False
+        self.background_tasks = BackgroundTasks(self)
+        self.background_update = BackgroundUpdate(self)
+        self.background_update.sigRestartAfterUpdate.connect(self.restart_after_update)
 
         self.init_window = None
         self.main_window = None
@@ -57,17 +53,18 @@ class GIWAXSMainController(QObject):
         self.open_init_window()
 
     def open_main_window(self):
-        self.main_window = GIWAXSMainWindow(self.is_updated)
+        self.main_window = GIWAXSMainWindow()
 
         self.main_window.sigCloseApp.connect(self.close_app)
         self.main_window.sigRestartApp.connect(self.restart_app)
-        self.main_window.sigRestartAfterUpdate.connect(self.restart_after_update)
         self.main_window.sigOpenProject.connect(self.open_new_project)
         self.main_window.sigCloseProject.connect(self.close_project)
         self.main_window.sigSetStyle.connect(self.set_style)
 
+        self.background_update.run()
+
     def open_init_window(self):
-        self.init_window = InitWindow(self.app.fm.recent_projects, self.is_updated)
+        self.init_window = InitWindow(self.app.fm.recent_projects, self.background_update.is_updated)
         self.init_window.sigOpenProject.connect(self.open_new_project)
         self.init_window.sigExit.connect(self.close_app)
 
@@ -131,21 +128,20 @@ class GIWAXSMainWindow(QMainWindow):
     sigOpenProject = pyqtSignal(object)
     sigCloseProject = pyqtSignal()
     sigRestartApp = pyqtSignal()
-    sigRestartAfterUpdate = pyqtSignal()
     sigSetStyle = pyqtSignal(str)
 
-    def __init__(self, is_updated: bool, parent=None):
+    def __init__(self, parent=None):
         super(GIWAXSMainWindow, self).__init__(parent=parent)
         self.__closing: bool = False
         self.app = App()
+        self.dock_area = AppDockArea(self)
+        self.popups = PopUpWrapper(self)
+        self._connect_background_tasks()
+
         self._init_toolbar()
         self._init_shortcuts()
         self._init_menubar()
-        self.popups = PopUpWrapper(self)
 
-        self.q_thead_pool = QThreadPool(self)
-
-        self.dock_area = AppDockArea(self)
         self.app.fm.sigProjectClosed.connect(self.update_window_title)
         self.app.fm.sigProjectOpened.connect(self.update_window_title)
 
@@ -156,45 +152,14 @@ class GIWAXSMainWindow(QMainWindow):
         self.setWindowState(Qt.WindowMaximized)
         self.show()
 
-        if not is_updated:
-            self.check_update()
-        else:
-            self.popups.add_notification(get_check_result_notification(CheckVersionMessage.latest_version_installed))
+    def _connect_background_tasks(self):
+        background_tasks = BackgroundTasks()
+        background_tasks.tasks.sigAddNotification.connect(self.popups.add_notification)
+        background_tasks.tasks.sigRemoveNotification.connect(self.popups.remove_by_name)
+        background_tasks.tasks.sigAddProgressBar.connect(self._add_progress_bar)
 
-    def check_update(self):
-        self.popups.add_notification(CheckingVersion(), NotificationTypes.checking_version)
-        worker = Worker(check_outdated, version=__version__)
-        worker.autoDelete()
-        worker.signals.result.connect(self._version_checked)
-        self.q_thead_pool.start(worker)
-
-    def update_package(self, target_version: str = ''):
-        worker = Worker(update_package, version=target_version)
-        worker.autoDelete()
-        worker.signals.result.connect(self._package_updated)
-        self.q_thead_pool.start(worker)
-        self.popups.add_notification(UpdatingProgram(target_version), NotificationTypes.updating_program)
-
-    @pyqtSlot(object, name='versionChecked')
-    def _version_checked(self, res: CheckVersionMessage):
-        self.popups.remove_by_name(NotificationTypes.checking_version)
-        self.popups.add_notification(get_check_result_notification(res), NotificationTypes.check_result)
-
-        if res.value == CheckVersionMessage.new_version_available.value:
-            try:
-                self.update_package(res.version)
-            except AttributeError:
-                return
-
-    @pyqtSlot(object, name='packageUpdated')
-    def _package_updated(self, is_updated: bool):
-        self.popups.remove_by_name(NotificationTypes.updating_program)
-        if is_updated:
-            ask_restart = AskRestart()
-            ask_restart.sigRestart.connect(self.sigRestartAfterUpdate)
-            self.popups.add_notification(ask_restart)
-        else:
-            self.popups.add_notification(UpdateFailed())
+    def _add_progress_bar(self, progress_bar_func):
+        return progress_bar_func(self)
 
     def update_window_title(self):
         if self.app.fm.project_opened:
@@ -309,6 +274,9 @@ class GIWAXSMainWindow(QMainWindow):
 
         interpolation = docks_toolbar.addAction(Icon('interpolate'), 'Polar Viewer')
         interpolation.triggered.connect(lambda: self.dock_area.show_hide_docks('polar'))
+
+        crystal_database = docks_toolbar.addAction(Icon('data'), 'Crystal Database')
+        crystal_database.triggered.connect(self.dock_area.show_hide_crystal_database)
 
         self.gen_toolbar = ToolBar('General')
         self.addToolBar(self.gen_toolbar)
