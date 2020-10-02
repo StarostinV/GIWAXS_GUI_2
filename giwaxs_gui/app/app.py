@@ -10,6 +10,7 @@ from .image_holder import ImageHolder
 from .profiles import RadialProfile, AngularProfile
 from .debug_tracker import TrackQObjects
 from .data_manager import DataManager
+from .structures import CrystalsDatabase
 
 
 class App(metaclass=SingletonMeta):
@@ -23,6 +24,7 @@ class App(metaclass=SingletonMeta):
         self.radial_profile: RadialProfile = RadialProfile(self.image_holder, self.fm)
         self.angular_profile: AngularProfile = AngularProfile(self.image_holder)
         self.data_manager: DataManager = DataManager(self.fm, self.image_holder)
+        self.crystals_database: CrystalsDatabase = CrystalsDatabase()
 
         self._connect_app()
 

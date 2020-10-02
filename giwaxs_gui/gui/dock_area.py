@@ -11,7 +11,9 @@ from .profiles.radial_profile_widget import RadialProfileWidget
 from .profiles.angular_profile_widget import AngularProfileWidget
 from .fitting import FitWidget
 from .save_window import SaveWindow
-
+from .crystal_viewer import MainCrystalViewer
+from .structures.crystal_image_viewer import CrystalImageWidget
+from .structures import CrystalsController
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,8 @@ class AppDockArea(DockArea):
         DockArea.__init__(self, parent=parent)
         self._status_dict = defaultdict(lambda: True)
         self.app = App()
+        self.crystal_controller = CrystalsController(self.app.crystals_database, self, self)
+        self.crystal_viewer = MainCrystalViewer(self.crystal_controller, self)
 
         self.__init_image_viewer()
         self.__init_polar_viewer()
@@ -28,13 +32,16 @@ class AppDockArea(DockArea):
         self.__init_radial_widget()
         self.__init_file_widget()
         self.__init_angular_widget()
+        self.__init_crystal_image_widget()
 
-        self._DOCK_DICT = {'image_view': self.image_viewer_dock,
-                           'polar': self.polar_viewer_dock,
-                           'radial_profile': self.radial_profile_dock,
-                           # 'control': self.control_dock,
-                           'file_widget': self.file_dock,
-                           'angular_profile': self.angular_profile_dock}
+        self._DOCK_DICT = {
+            'image_view': self.image_viewer_dock,
+            'polar': self.polar_viewer_dock,
+            'radial_profile': self.radial_profile_dock,
+            'file_widget': self.file_dock,
+            'angular_profile': self.angular_profile_dock,
+            'crystal_image': self.crystal_image_viewer_dock
+        }
         self._apply_default_view()
         self._fit_widget = None
 
@@ -54,6 +61,7 @@ class AppDockArea(DockArea):
         self.show_hide_docks('polar')
         self.show_hide_docks('radial_profile')
         self.show_hide_docks('angular_profile')
+        self.show_hide_docks('crystal_image')
         # self.show_hide_docks('control')
 
     def __init_image_viewer(self):
@@ -84,6 +92,14 @@ class AppDockArea(DockArea):
         self.addDock(dock, position='bottom')
         self.angular_profile_dock = dock
 
+    def __init_crystal_image_widget(self):
+        self.crystal_image_viewer = CrystalImageWidget(self)
+        self.crystal_controller.connect_image_widget(self.crystal_image_viewer)
+        dock = Dock('Crystal Image Viewer')
+        dock.addWidget(self.crystal_image_viewer)
+        self.addDock(dock, position='right')
+        self.crystal_image_viewer_dock = dock
+
     # def __init_control_widget__(self):
     #     self.control_widget = ControlWidget(
     #         self.get_lower_connector('ControlWidget'), self)
@@ -107,3 +123,11 @@ class AppDockArea(DockArea):
         else:
             dock.show()
         self._status_dict[dock_name] = not status
+
+    def show_hide_crystal_database(self):
+        if self.crystal_viewer.isHidden():
+            self.crystal_viewer.show()
+            self.crystal_image_viewer_dock.show()
+        else:
+            self.crystal_viewer.close()
+            self.crystal_image_viewer_dock.hide()
