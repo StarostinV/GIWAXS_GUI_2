@@ -133,11 +133,11 @@ class CustomImageViewer(GraphicsLayoutWidget):
         self._scale = scale
         self.set_default_range()
 
-    def get_scale(self):
+    def get_scale(self) -> tuple:
         # scale property is occupied by Qt superclass.
         return self._scale
 
-    def get_center(self):
+    def get_center(self) -> tuple:
         return self._center
 
     def set_x_axis(self, x_min, x_max):
