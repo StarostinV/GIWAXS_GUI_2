@@ -42,14 +42,18 @@ def save_file_dialog(parent, title: str = 'Save File', file_format: str = 'H5 fi
         return Path(filename)
 
 
-def get_image_filepath(parent, message: str = 'Open image') -> Path or None:
+def get_filepath_dialog(parent, message: str, formats: str):
     options = QFileDialog.Options()
     options |= QFileDialog.DontUseNativeDialog
     filepath, _ = QFileDialog.getOpenFileName(
         parent, message, '',
-        GLOB_IMAGE_FORMATS, options=options)
+        formats, options=options)
     if filepath:
         return Path(filepath)
+
+
+def get_image_filepath(parent, message: str = 'Open image') -> Path or None:
+    return get_filepath_dialog(parent, message, GLOB_IMAGE_FORMATS)
 
 
 def get_folder_filepath(parent, message: str, *, show_files: bool = True,
