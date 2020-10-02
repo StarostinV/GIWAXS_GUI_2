@@ -9,43 +9,35 @@ from ...app import Roi, App
 from .abstract_roi_widget import AbstractRoiWidget
 
 
-class Roi2DRing(AbstractRoiWidget, ROI):
-    sigRoiMoved = pyqtSignal(int)
-    sigSelected = pyqtSignal(int)
-    sigShiftSelected = pyqtSignal(int)
+class BasicRoiRing(ROI):
+    def __init__(self,
+                 radius: float,
+                 width: float,
+                 angle: float,
+                 angle_std: float,
+                 center: tuple = (0, 0),
+                 movable: bool = False,
+                 rotatable: bool = False,
+                 resizable: bool = False,
+                 parent=None,
+                 **kwargs):
 
-    def __init__(self, roi: Roi, parent=None):
-        AbstractRoiWidget.__init__(self, roi)
-        ROI.__init__(self, (0, 0), (roi.radius, roi.radius),
-                     movable=False, parent=parent)
-        self._radius = roi.radius
-        self._center = (0, 0)
-        self._width = roi.width
-        self._angle = roi.angle
-        self._angle_std = roi.angle_std
+        super().__init__(center,
+                         (radius, radius),
+                         movable=movable,
+                         rotatable=rotatable,
+                         resizable=resizable,
+                         parent=parent,
+                         **kwargs)
+
+        self._center = center
+        self._radius = radius
+        self._width = width
+        self._angle = angle
+        self._angle_std = angle_std
 
         self.aspectLocked = True
-
         self.set_radius(self._radius)
-        self.update_roi()
-
-        if App().debug_tracker:
-            App().debug_tracker.add_object(self, roi.name)
-
-    @pyqtSlot(name='move_roi')
-    def move_roi(self):
-        self.set_radius(self.roi.radius)
-        self.set_width(self.roi.width)
-        if self.roi.angle is not None:
-            self.set_angle(self.roi.angle)
-        if self.roi.angle_std is not None:
-            self.set_angle_std(self.roi.angle_std)
-
-    def send_move(self):
-        pass
-
-    def set_color(self, color):
-        self.setPen(color)
 
     def set_center(self, center: tuple):
         self._center = center
@@ -54,7 +46,7 @@ class Roi2DRing(AbstractRoiWidget, ROI):
         self.setPos(pos)
 
     def set_radius(self, radius):
-        self._radius = radius
+        self._radius = radius if radius > 0 else 0
         s = 2 * radius + self._width
         self.setSize((s, s))
         self.set_center(self._center)
@@ -70,6 +62,29 @@ class Roi2DRing(AbstractRoiWidget, ROI):
     def set_angle_std(self, angle):
         self._angle_std = angle
         self.set_center(self._center)
+
+    def set_params(self, *,
+                   radius: float = None, width: float = None, angle: float = None,
+                   angle_std: float = None, center: tuple = None):
+
+        should_set_radius: bool = False
+
+        if radius is not None and radius != self._radius:
+            self._radius = radius
+            should_set_radius = True
+        if width is not None and width != self._width:
+            self._width = width
+            should_set_radius = True
+        if angle is not None and angle != self._angle:
+            self._angle = angle
+        if angle_std is not None and angle_std != self._angle_std:
+            self._angle_std = angle_std
+        if center is not None and self._center != center:
+            self._center = center
+        if should_set_radius:
+            self.set_radius(radius)
+        else:
+            self.set_center(self._center)
 
     def paint(self, p, opt, widget):
         p.setRenderHint(QPainter.Antialiasing)
@@ -125,3 +140,38 @@ class Roi2DRing(AbstractRoiWidget, ROI):
         self.path = QPainterPath()
         self.path.addEllipse(self.boundingRect())
         return self.path
+
+
+class Roi2DRing(AbstractRoiWidget, BasicRoiRing):
+    sigRoiMoved = pyqtSignal(int)
+    sigSelected = pyqtSignal(int)
+    sigShiftSelected = pyqtSignal(int)
+
+    def __init__(self, roi: Roi, parent=None):
+        AbstractRoiWidget.__init__(self, roi)
+        BasicRoiRing.__init__(self,
+                              radius=roi.radius,
+                              width=roi.width,
+                              angle=roi.angle,
+                              angle_std=roi.angle_std,
+                              parent=parent)
+
+        self.update_roi()
+
+        if App().debug_tracker:
+            App().debug_tracker.add_object(self, roi.name)
+
+    @pyqtSlot(name='move_roi')
+    def move_roi(self):
+        self.set_radius(self.roi.radius)
+        self.set_width(self.roi.width)
+        if self.roi.angle is not None:
+            self.set_angle(self.roi.angle)
+        if self.roi.angle_std is not None:
+            self.set_angle_std(self.roi.angle_std)
+
+    def send_move(self):
+        pass
+
+    def set_color(self, color):
+        self.setPen(color)
