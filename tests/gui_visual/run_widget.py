@@ -9,15 +9,16 @@ from tests.fixures.projects import ProjectInfo
 
 
 def run_widget(widget_class, project_info: ProjectInfo = None, *,
-               args: list = None, kwargs: dict = None, expand_tree: bool = True):
+               args: list = None, kwargs: dict = None, expand_tree: bool = True,
+               ):
     args = args or []
     kwargs = kwargs or {}
 
     qapp = QApplication([])
-    app = App()
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         if project_info:
+            app = App()
             app.fm.open_project(Path(tmpdirname))
 
             if project_info.root_path:
