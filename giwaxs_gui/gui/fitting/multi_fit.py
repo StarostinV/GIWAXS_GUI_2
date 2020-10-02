@@ -41,7 +41,7 @@ class MultiFit(QObject):
 
     def __init__(self, fm_multi_fit, folder_key: FolderKey, parent=None):
         super().__init__(parent=parent)
-        self.sleep_time: float = 0.002
+        self.sleep_time: float = 0.05
         self._paused: bool = True
         self._stopped: bool = False
         self.fm_multi_fit = fm_multi_fit
@@ -66,9 +66,7 @@ class MultiFit(QObject):
                 rois_data_fm[image_key] = roi_data
 
             self.sigSaved.emit(i)
-
-            if self.sleep_time:
-                sleep(self.sleep_time)
+            self._process_events()
 
         self.sigSavedFinished.emit()
 
@@ -78,6 +76,7 @@ class MultiFit(QObject):
         fit_obj = deepcopy(fit_obj)
 
         while fit_obj and fit_obj.fits and not self._paused:
+            self._process_events()
 
             self.log.info(f'Fitting image {fit_obj.image_key}')
             for fit in fit_obj.fits.values():
@@ -90,10 +89,7 @@ class MultiFit(QObject):
 
                 fit.roi.movable = True
 
-                if self.sleep_time:
-                    sleep(self.sleep_time)
-
-                QCoreApplication.processEvents()
+                self._process_events()
 
                 if self._paused:
                     self.log.debug('Paused!')
@@ -123,6 +119,10 @@ class MultiFit(QObject):
             self._paused = True
             self.sigFinished.emit()
 
+    def _process_events(self):
+        sleep(self.sleep_time)
+        QCoreApplication.processEvents()
+
     @pyqtSlot(list, int, name='runFit')
     def run_delete(self, image_list: List[ImageKey], roi_key: int):
         for i, image_key in enumerate(self.folder_key.image_children):
@@ -135,8 +135,7 @@ class MultiFit(QObject):
                     except KeyError:
                         pass
             self.sigDeleted.emit(i)
-            if self.sleep_time:
-                sleep(self.sleep_time)
+            self._process_events()
         self.sigDeletedFinished.emit()
 
     @property
