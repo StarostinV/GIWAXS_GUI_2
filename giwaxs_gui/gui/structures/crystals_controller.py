@@ -13,24 +13,10 @@ from ..basic_widgets.progress_bar import ProgressBar
 from ..background_tasks import BackgroundTasks
 
 from ...app.app import App
-from ...app.utils import Worker, WorkerSignals
+from ...app.utils import UpdateWorker
 from ...app.structures import CrystalsDatabase, CustomCrystal
 
 logger = logging.getLogger(__name__)
-
-
-class UpdateWorkerSignals(WorkerSignals):
-    sigSetMax = pyqtSignal(int)
-    sigSetProgress = pyqtSignal(int)
-
-
-class UpdateWorker(Worker):
-    def __init__(self, fn, *args, **kwargs):
-        super().__init__(fn, *args, signals=UpdateWorkerSignals(), **kwargs)
-
-    def call_func(self):
-        return self.fn(*self.args, process_callback=self.signals.sigSetProgress.emit,
-                       set_max_callback=self.signals.sigSetMax.emit, **self.kwargs)
 
 
 class CrystalsController(QObject):
@@ -115,19 +101,22 @@ class CrystalsController(QObject):
         viewer.sigCrystalRemoved.connect(self.selected_holder.remove_crystal)
         viewer.sigCrystalChecked.connect(self.selected_holder.crystal_checked)
         viewer.sigCrystalUnchecked.connect(self.selected_holder.crystal_unchecked)
+        viewer.sigRingSelected.connect(self.selected_holder.ring_selected)
 
     def connect_database_list(self, viewer: DatabaseWindow):
         self.crystals_database.sigCrystalAdded.connect(viewer.add_crystal)
         self.crystals_database.sigCrystalRemoved.connect(viewer.remove_crystal)
 
         viewer.sigCrystalSelected.connect(self.crystals_database.crystal_selected)
-
         viewer.sigCrystalAddedToSelected.connect(self.selected_holder.add_crystal)
         viewer.sigCrystalRemoved.connect(self.crystals_database.remove_crystal)
 
     def connect_image_widget(self, widget: CrystalImageWidget):
         self.selected_holder.sigCrystalChecked.connect(widget.add_crystal)
         self.selected_holder.sigCrystalUnchecked.connect(widget.remove_crystal)
+        self.selected_holder.sigCrystalSelected.connect(widget.select_crystal)
+        self.crystals_database.sigCrystalSelected.connect(widget.select_crystal)
+        self.selected_holder.sigRingSelected.connect(widget.select_ring)
         self.sigCheckedRingsUpdated.connect(widget.redraw_rings)
         widget.sigUpdateClicked.connect(self._scale_updated)
         widget.send_init_scale()

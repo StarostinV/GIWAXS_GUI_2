@@ -4,7 +4,7 @@ from typing import List
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QThreadPool
 
-from .custom_crystal import CustomCrystal
+from .custom_crystal import CustomCrystal, CrystalRing
 
 
 class CrystalsHolder(QObject):
@@ -12,6 +12,7 @@ class CrystalsHolder(QObject):
     sigCrystalRemoved = pyqtSignal(CustomCrystal)
     sigErrorCrystalAlreadyExists = pyqtSignal(CustomCrystal)
     sigCrystalSelected = pyqtSignal(CustomCrystal)
+    sigRingSelected = pyqtSignal(CrystalRing)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -31,6 +32,10 @@ class CrystalsHolder(QObject):
     @pyqtSlot(CustomCrystal, name='crystalSelected')
     def crystal_selected(self, crystal: CustomCrystal):
         self.sigCrystalSelected.emit(crystal)
+
+    @pyqtSlot(CrystalRing, name='ringSelected')
+    def ring_selected(self, crystal: CustomCrystal):
+        self.sigRingSelected.emit(crystal)
 
     @pyqtSlot(CustomCrystal, name='addCrystal')
     def add_crystal(self, crystal: CustomCrystal):
@@ -74,6 +79,8 @@ class SelectedCrystalsHolder(CrystalsHolder):
         super().__init__(parent)
         self._checked_crystals = {}
         self._q_thread_pool = QThreadPool(self)
+        self.sigCrystalAdded.connect(self.crystal_checked)
+        self.sigCrystalRemoved.connect(self.crystal_unchecked)
 
     def crystal_is_checked(self, crystal: CustomCrystal):
         return crystal.key in self._checked_crystals
@@ -91,17 +98,6 @@ class SelectedCrystalsHolder(CrystalsHolder):
             self.sigCrystalUnchecked.emit(crystal)
         except KeyError:
             pass
-
-    @pyqtSlot(CustomCrystal, name='addCrystal')
-    def add_crystal(self, crystal: CustomCrystal):
-        super().add_crystal(crystal)
-        self.crystal_checked(crystal)
-
-    @pyqtSlot(CustomCrystal, name='removeCrystal')
-    def remove_crystal(self, crystal: CustomCrystal):
-        if self.crystal_is_checked(crystal):
-            self.crystal_unchecked(crystal)
-        super().remove_crystal(crystal)
 
     @property
     def is_updated(self):
