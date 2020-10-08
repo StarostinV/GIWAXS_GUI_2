@@ -47,6 +47,8 @@ setup(
         'h5py>=2.10.0',
         'PyQt5',
         'pyqtgraph==0.11.0rc0',
+        'PyOpenGL',
+        'PyGLM',
         'read_edf',
         'Pillow',
         'requests',

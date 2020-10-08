@@ -94,9 +94,9 @@ class CrystalImageViewer(CustomImageViewer):
             crystal = self._selected_ring.crystal
             try:
                 crystal_color = self._get_crystal_color(crystal)
-                self._get_ring_dict(crystal)[self._selected_ring.key].setPen(crystal_color)
-            except KeyError as err:
-                raise InternalError(f'Ring cannot be unselected: {self._selected_ring}') from err
+                self._crystals_dict[crystal.key][self._selected_ring.key].setPen(crystal_color)
+            except KeyError:  # crystal was removed
+                pass
             finally:
                 self._selected_ring = None
 

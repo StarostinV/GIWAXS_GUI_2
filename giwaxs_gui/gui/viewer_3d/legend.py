@@ -3,8 +3,8 @@ from PyQt5.QtGui import QColor, QFont
 from PyQt5.QtCore import pyqtSlot, pyqtSignal
 
 from pyqtgraph import ColorButton
-from crystals import Crystal
 
+from .scene import SceneCrystal
 from .colors import CrystalColors
 
 
@@ -14,7 +14,6 @@ class CrystalLegend(QWidget):
     def __init__(self):
         super().__init__()
         self._widgets = []
-        self._crystal = None
         self.colors = CrystalColors()
         self._layout = QGridLayout(self)
         self.setMaximumWidth(100)
@@ -24,8 +23,7 @@ class CrystalLegend(QWidget):
         return self._crystal
 
     @pyqtSlot(object, name='setCrystal')
-    def set_crystal(self, crystal: Crystal):
-        self._crystal = crystal
+    def set_crystal(self, crystal: SceneCrystal):
         self.colors.set_crystal(crystal)
         self._clear_layout()
 

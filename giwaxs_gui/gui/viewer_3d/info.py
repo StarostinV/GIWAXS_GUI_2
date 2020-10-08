@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtGui import QFont
 
-from crystals import Crystal
+from ...app.structures import CustomCrystal
 
 
 class CrystalLabel(QLabel):
@@ -10,6 +10,6 @@ class CrystalLabel(QLabel):
         self.setFont(QFont('Helvetica', 14))
         self.setMaximumHeight(50)
 
-    def set_crystal(self, crystal: Crystal):
+    def set_crystal(self, crystal: CustomCrystal):
         label = f'{crystal.international_symbol} ({crystal.lattice_system.name} {crystal.chemical_formula})'
         self.setText(label)
