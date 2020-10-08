@@ -1,2 +1,4 @@
 include giwaxs_gui/static/icons/*.png
 include giwaxs_gui/static/readme/*.png
+include giwaxs_gui/gui/viewer_3d/meshes/*.npy
+include giwaxs_gui/gui/viewer_3d/shaders/*
