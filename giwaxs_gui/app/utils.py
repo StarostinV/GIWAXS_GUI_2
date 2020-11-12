@@ -26,6 +26,10 @@ class InternalError(Exception):
     pass
 
 
+class CorruptedFileError(Exception):
+    pass
+
+
 def baseline_correction(y: np.ndarray,
                         smoothness_param: float,
                         asymmetry_param: float,
