@@ -58,7 +58,6 @@ def get_crystal_rings(crystal: Crystal,
         logger.debug(f'Calc miller indices {miller_indices}')
         if miller_indices not in ring_dict:
             ring_dict[miller_indices] = _get_ring(crystal, miller_indices, min_sf)
-            time.sleep(0.01)
         process_callback(i)
 
     return ring_dict
