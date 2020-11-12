@@ -5,6 +5,7 @@ from typing import List
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QThreadPool
 
 from .custom_crystal import CustomCrystal, CrystalRing
+from ..utils import CorruptedFileError
 
 
 class CrystalsHolder(QObject):
@@ -55,7 +56,11 @@ class CrystalsHolder(QObject):
 
     @pyqtSlot(Path, name='addCrystalFromCif')
     def add_crystal_from_cif(self, cif_path: Path):
-        crystal = CustomCrystal.from_cif(str(cif_path.resolve()))
+        try:
+            crystal = CustomCrystal.from_cif(str(cif_path.resolve()))
+        except:
+            raise CorruptedFileError(f'Cif file {str(cif_path.resolve())}'
+                                     f' seems to be corrupted or structured in a wrong way. ')
         self.add_crystal(crystal)
 
     @property
