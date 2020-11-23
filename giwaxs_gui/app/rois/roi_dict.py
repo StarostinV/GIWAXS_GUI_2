@@ -183,7 +183,7 @@ class RoiDict(QObject):
     def add_roi(self, roi: Roi) -> None:
         self._meta_data.add_roi(roi, self._current_key)
         self._roi_data.add_roi(roi)
-        if roi.type == RoiTypes.ring and (roi.angle, roi.angle_std) != self.ring_bounds:
+        if not roi.has_fixed_angles():
             roi.angle, roi.angle_std = self.ring_bounds
         self.sig_roi_created.emit((roi.key,))
         if roi.active:
@@ -236,9 +236,8 @@ class RoiDict(QObject):
     def move_roi(self, key: int, name: str):
         self.select(key)
         self.sig_roi_moved.emit((key,), name)
-        angle, angle_std = self.ring_bounds
         roi = self[key]
-        if roi.type == RoiTypes.ring and (roi.angle != angle or roi.angle_std != angle_std):
+        if roi.should_adjust_angles(*self.ring_bounds):
             roi.type = RoiTypes.segment
             self.sig_type_changed.emit(key)
 
@@ -246,7 +245,7 @@ class RoiDict(QObject):
     def change_roi_type(self, key: int):
         try:
             roi = self[key]
-            if roi.type == RoiTypes.ring and (roi.angle, roi.angle_std) != self.ring_bounds:
+            if roi.should_adjust_angles(*self.ring_bounds):
                 roi.angle, roi.angle_std = self.ring_bounds
                 self.sig_roi_moved.emit((key,), self.EMIT_NAME)
         except KeyError:
@@ -382,7 +381,7 @@ class CopiedRois(object):
                 roi.width *= s
         if self._bounds != geometry.ring_bounds:
             for roi in rois:
-                if roi.type == RoiTypes.ring:
+                if not roi.has_fixed_angles():
                     roi.angle, roi.angle_std = geometry.ring_bounds
         if clear_keys:
             for roi in rois:

@@ -285,10 +285,15 @@ class FitWidget(QWidget):
             menu.addAction('Fit', lambda *x, r=roi: self._fit(roi))
         else:
             menu.addAction('Unfix', lambda *x, r=roi: self._unfix(roi))
-        if roi.type == RoiTypes.ring:
-            menu.addAction(f'Change to segment type', lambda *x, r=roi: self._change_roi_type(roi))
-        else:
-            menu.addAction(f'Change to ring type', lambda *x, r=roi: self._change_roi_type(roi))
+        if not roi.type == RoiTypes.segment:
+            menu.addAction(f'Change to segment type',
+                           lambda *x, r=roi: self._change_roi_type(roi, RoiTypes.segment))
+        if not roi.type == RoiTypes.ring:
+            menu.addAction(f'Change to ring type',
+                           lambda *x, r=roi: self._change_roi_type(roi, RoiTypes.ring))
+        if not roi.type == RoiTypes.background:
+            menu.addAction(f'Change to background type',
+                           lambda *x, r=roi: self._change_roi_type(roi, RoiTypes.background))
         menu.exec_(QCursor.pos())
 
     def _delete_rois(self, roi: Roi, delete_regime: DeleteRegime):
@@ -310,12 +315,10 @@ class FitWidget(QWidget):
             del self.fit_object.fits[roi.key]
             self.polar_viewer.image_plot.removeItem(self._rect_widgets.pop(roi.key))
 
-    def _change_roi_type(self, roi: Roi):
-        if roi.type == RoiTypes.ring:
-            roi.type = RoiTypes.segment
+    def _change_roi_type(self, roi: Roi, t: RoiTypes):
+        roi.type = t
 
-        else:
-            roi.type = RoiTypes.ring
+        if not roi.has_fixed_angles():
             roi.angle, roi.angle_std = self.fit_object.bounds
 
         if roi.key == self.selected_key:
@@ -335,8 +338,12 @@ class FitWidget(QWidget):
             text = 'Selected Fit'
         elif self._selected_fit.roi.type == RoiTypes.ring:
             text = f'Selected Fit: Ring {self._selected_fit.roi.name}'
-        else:
+        elif self._selected_fit.roi.type == RoiTypes.segment:
             text = f'Selected Fit: Segment {self._selected_fit.roi.name} (no baseline correction)'
+        elif self._selected_fit.roi.type == RoiTypes.background:
+            text = f'Selected Fit: Background {self._selected_fit.roi.name}'
+        else:
+            raise TypeError(f'Unknown roi type {self._selected_fit.roi.type}.')
         self.selected_fit_label.setText(text)
 
     def _update_combo_boxes(self):
@@ -502,7 +509,7 @@ class FitWidget(QWidget):
         if key != self.selected_key:
             self._on_rect_roi_selected(key)
         roi = self._selected_fit.roi
-        if roi.type == RoiTypes.ring and (roi.angle, roi.angle_std) != self.fit_object.bounds:
+        if roi.should_adjust_angles(*self.fit_object.bounds):
             roi.type = RoiTypes.segment
             self._update_selected_fit_label()
 

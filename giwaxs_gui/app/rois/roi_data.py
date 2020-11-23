@@ -101,7 +101,7 @@ class RoiData(dict):
         angle, angle_std = bounds
         keys = list()
         for k, roi in self.items():
-            if roi.type == RoiTypes.ring and (roi.angle != angle or roi.angle_std != angle_std):
+            if roi.should_adjust_angles(angle, angle_std):
                 keys.append(k)
                 roi.angle, roi.angle_std = bounds
         return keys

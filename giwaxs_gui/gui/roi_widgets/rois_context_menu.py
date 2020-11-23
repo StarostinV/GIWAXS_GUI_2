@@ -84,15 +84,20 @@ class RoiContextMenu(AbstractRoiContextMenu):
         rename.addAction(rename_action)
 
     def _init_type_menu(self):
-        if self.roi.type == RoiTypes.ring:
-            new_type = RoiTypes.segment
-            change_type_name = 'segment'
-        else:
-            new_type = RoiTypes.ring
-            change_type_name = 'ring'
-        change_type_action = self.addAction(f'Change type to {change_type_name}')
-        change_type_action.triggered.connect(
-            lambda: self._change_roi_type(new_type))
+        available_types = []
+        roi = self.roi
+
+        if not roi.type == RoiTypes.segment:
+            available_types.append(('segment', RoiTypes.segment))
+        if not roi.type == RoiTypes.ring:
+            available_types.append(('ring', RoiTypes.ring))
+        if not roi.type == RoiTypes.background:
+            available_types.append(('background', RoiTypes.background))
+
+        for name, new_type in available_types:
+            change_type_action = self.addAction(f'Change type to {name}')
+            change_type_action.triggered.connect(
+                lambda *x, t=new_type: self._change_roi_type(t))
 
     def _change_roi_type(self, new_type: RoiTypes):
         self.roi.type = new_type

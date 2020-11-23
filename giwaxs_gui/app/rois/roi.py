@@ -7,6 +7,7 @@ import numpy as np
 class RoiTypes(Enum):
     ring = 1
     segment = 2
+    background = 3
 
 
 @dataclass
@@ -36,6 +37,17 @@ class Roi:
         roi = cls(**dict(zip(_ROI_NAMES, arr)), **meta_data)
         roi.type = RoiTypes(roi.type)
         return roi
+
+    def should_adjust_angles(self, angle: float, angle_std: float) -> bool:
+        return (
+            self.type == RoiTypes.ring or
+            self.type == RoiTypes.background
+               ) and (
+            self.angle != angle or self.angle_std != angle_std
+        )
+
+    def has_fixed_angles(self) -> bool:
+        return self.type == RoiTypes.segment
 
 
 DTYPES = [('radius', 'f4'), ('width', 'f4'), ('angle', 'f4'), ('angle_std', 'f4'),

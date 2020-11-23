@@ -218,7 +218,7 @@ class FitObject(object):
     def _get_x_y(self, roi: Roi, x1: int, x2: int, sigma: float = None):
         x = self.r_axis[x1:x2]
 
-        if roi.type == RoiTypes.ring:
+        if not roi.has_fixed_angles():
             if sigma is None:
                 y = self.r_profile[x1:x2]
             else:
