@@ -1,10 +1,11 @@
 import pytest
-from typing import NamedTuple, List, Dict, Generator
+from typing import List, Dict, Generator
 from pathlib import Path
+from dataclasses import dataclass
+
 from giwaxs_gui import App
 from giwaxs_gui.app.file_manager import ImageKey, FolderKey, ImagePathKey, FolderPathKey
 
-# from giwaxs_gui.app.utils import
 
 __all__ = ['empty_project', 'project_1', 'ProjectInfo', 'PROJECT_1_INFO', 'PROJECT_2_INFO']
 
@@ -21,7 +22,8 @@ def lazy_property(func):
     return wrapper
 
 
-class ProjectInfo(NamedTuple):
+@dataclass
+class ProjectInfo:
     name: str
     root_path: Path
     path_tree: dict
@@ -32,7 +34,7 @@ class ProjectInfo(NamedTuple):
 
     @lazy_property
     def all_image_keys(self) -> Generator[ImagePathKey, None, None]:
-        paths_dict = self.paths_dict()
+        paths_dict = self.paths_dict
         for image_key_list in paths_dict.values():
             yield from image_key_list
 
