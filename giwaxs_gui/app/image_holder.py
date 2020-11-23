@@ -176,6 +176,9 @@ class ImageHolder(QObject):
 
     @pyqtSlot(list, name='openFitRois')
     def open_fit_rois(self, rois: List[Roi]):
+        self.sigFitOpen.emit(self.create_fit_object(rois))
+
+    def create_fit_object(self, rois: List[Roi]) -> FitObject:
         fit_object = FitObject(self._current_key, self.polar_image,
                                self.geometry.r_axis, self.geometry.phi_axis)
         profile = self._fm.profiles[self._current_key]
@@ -185,8 +188,7 @@ class ImageHolder(QObject):
 
         for roi in rois:
             fit_object.new_fit(roi)
-
-        self.sigFitOpen.emit(fit_object)
+        return fit_object
 
     @pyqtSlot(object, name='applyFit')
     def apply_fit(self, fit_object: FitObject):
