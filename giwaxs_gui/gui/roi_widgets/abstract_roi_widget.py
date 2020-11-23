@@ -19,7 +19,7 @@ def _color_key(roi: Roi) -> str:
 
 
 class AbstractRoiWidget(object):
-    BRIGHT_COLOR: bool = True
+    OPACITY: int = None
 
     COLOR_DICT = dict(
         default=QColor(0, 0, 255),
@@ -41,8 +41,8 @@ class AbstractRoiWidget(object):
 
     def update_color(self):
         color = self.COLOR_DICT[_color_key(self.roi)]
-        if not self.BRIGHT_COLOR:
-            color.setAlpha(150)
+        if not self.OPACITY:
+            color.setAlpha(self.OPACITY)
         self.set_color(color)
 
     def update_roi(self):

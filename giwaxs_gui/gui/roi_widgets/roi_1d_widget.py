@@ -10,7 +10,7 @@ from .abstract_roi_widget import AbstractRoiWidget
 
 
 class Roi1D(AbstractRoiWidget, LinearRegionItem):
-    BRIGHT_COLOR: bool = False
+    OPACITY: bool = 150
 
     sigRoiMoved = pyqtSignal(int)
     sigSelected = pyqtSignal(int)
