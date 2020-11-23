@@ -70,7 +70,7 @@ class PolarImage(object):
                              yy.astype(np.float32),
                              zz.astype(np.float32),
                              interpolation=algorithm)
-        except:
+        except cv2.error:
             return
 
     def get_radial_profile(self) -> np.ndarray or None:
