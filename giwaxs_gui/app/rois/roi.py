@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from typing import Tuple
 
 import numpy as np
 
@@ -8,6 +9,10 @@ class RoiTypes(Enum):
     ring = 1
     segment = 2
     background = 3
+
+
+# (type, selected, fixed): (r, g, b)
+ROI_COLOR_KEY = Tuple[RoiTypes, bool, bool]
 
 
 @dataclass
@@ -48,6 +53,10 @@ class Roi:
 
     def has_fixed_angles(self) -> bool:
         return self.type == RoiTypes.segment
+
+    @property
+    def color_key(self):
+        return self.type, self.active, not self.movable
 
 
 DTYPES = [('radius', 'f4'), ('width', 'f4'), ('angle', 'f4'), ('angle_std', 'f4'),

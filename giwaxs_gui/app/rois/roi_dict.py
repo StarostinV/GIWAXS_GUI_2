@@ -7,6 +7,7 @@ from PyQt5.QtCore import pyqtSlot, pyqtSignal, QObject
 from .roi import Roi, RoiTypes
 from .roi_data import RoiData
 from .roi_meta_data import RoiMetaData
+from .roi_colors import RoiColors, RoiColorsDict, ROI_COLOR_KEY
 from ..file_manager import FileManager, ImageKey, FolderKey
 from ..geometry_holder import GeometryHolder
 
@@ -35,6 +36,7 @@ class RoiDict(QObject):
 
     sig_type_changed = pyqtSignal(int)
     sigFitRoisOpen = pyqtSignal(list)
+    sigColorChanged = pyqtSignal(tuple)
 
     EMIT_NAME = 'RoiDict'
 
@@ -48,6 +50,9 @@ class RoiDict(QObject):
         self._current_key: ImageKey or None = None
         self._meta_data: RoiMetaData or None = None
         self._copied_rois: CopiedRois = CopiedRois()
+        self._roi_colors: RoiColors = RoiColors(file_manager, parent=self)
+        self._roi_colors.sigColorChanged.connect(self.color_changed)
+        self._roi_colors.sigColorDictSet.connect(self.update_colors)
 
     def __len__(self):
         return len(self._roi_data)
@@ -234,12 +239,33 @@ class RoiDict(QObject):
 
     @pyqtSlot(int, str, name='moveRoi')
     def move_roi(self, key: int, name: str):
+        # TODO: add roiIsAboutToMove(self, key: int) slot
+        # TODO: how to implement roiIsMoved ? (mouse interaction only? or time?)
         self.select(key)
         self.sig_roi_moved.emit((key,), name)
         roi = self[key]
         if roi.should_adjust_angles(*self.ring_bounds):
             roi.type = RoiTypes.segment
             self.sig_type_changed.emit(key)
+
+    @pyqtSlot(tuple, name='colorChanged')
+    def color_changed(self, key: ROI_COLOR_KEY):
+        keys = self._get_rois_by_color_key(key)
+        if keys:
+            self.sigColorChanged.emit(keys)
+
+    @pyqtSlot(name='updateColors')
+    def update_colors(self):
+        keys = list(self.keys())
+        if keys:
+            self.sigColorChanged.emit(keys)
+
+    def _get_rois_by_color_key(self, key: ROI_COLOR_KEY) -> List[int]:
+        keys = []
+        for roi in self.values():
+            if (roi.type, roi.active, not roi.movable) == key:
+                keys.append(roi.key)
+        return keys
 
     @pyqtSlot(int, name='roiTypeChanged')
     def change_roi_type(self, key: int):

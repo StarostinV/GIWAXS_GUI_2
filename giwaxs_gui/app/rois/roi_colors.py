@@ -51,11 +51,10 @@ class RoiColors(QObject):
     sigColorChanged = pyqtSignal(tuple)
     sigColorDictSet = pyqtSignal()
 
-    def __init__(self, fm: FileManager, parent=None):
+    def __init__(self, fm: FileManager, color_dict: RoiColorsDict = None, parent=None):
         super().__init__(parent)
         self._fm = fm
-        saved_colors = fm.config[self._SAVE_KEY]
-        self._color_dict: RoiColorsDict = RoiColorsDict(saved_colors)
+        self._color_dict: RoiColorsDict = color_dict or RoiColorsDict(fm.config[self._SAVE_KEY])
 
     def save_colors(self):
         self._fm.config[self._SAVE_KEY] = self._color_dict
