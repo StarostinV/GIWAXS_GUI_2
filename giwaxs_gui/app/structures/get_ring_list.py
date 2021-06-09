@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import time
 import logging
 from itertools import product
 from typing import Dict, Tuple, Union, List, Callable
@@ -73,7 +72,7 @@ def _empty_callback() -> RingCalculationCallback:
 def _get_ring(crystal: Crystal, miller_indices: MillerIndices, min_sf: float) -> Union[CrystalRing, None]:
     scattering_vector = crystal.scattering_vector(miller_indices)
     q = np.linalg.norm(scattering_vector)
-    sf = _calc_structure_factor(scattering_vector, miller_indices, crystal) * _structure_factor_coef(miller_indices)
+    sf = _calc_structure_factor(q, miller_indices, crystal) * _structure_factor_coef(miller_indices)
     if sf >= min_sf:
         return CrystalRing(radius=q, miller_indices=miller_indices, intensity=sf, crystal=crystal)
 
@@ -82,8 +81,7 @@ def _structure_factor_coef(miller_indices: MillerIndices) -> int:
     return 2 ** sum(map(bool, miller_indices))
 
 
-def _calc_structure_factor(scattering_vector: np.ndarray, miller_indices: MillerIndices, crystal: Crystal) -> float:
-    q: float = np.linalg.norm(scattering_vector)
+def _calc_structure_factor(q: float, miller_indices: MillerIndices, crystal: Crystal) -> float:
     sf = 0
     for atom in crystal:
         ff = cr_ff.fxrayatq(atom.element, q, charge=None)
