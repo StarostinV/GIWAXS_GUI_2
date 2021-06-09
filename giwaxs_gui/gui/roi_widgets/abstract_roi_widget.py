@@ -41,7 +41,7 @@ class AbstractRoiWidget(object):
 
     def update_color(self):
         color = self.COLOR_DICT[_color_key(self.roi)]
-        if not self.OPACITY:
+        if self.OPACITY:
             color.setAlpha(self.OPACITY)
         self.set_color(color)
 
