@@ -4,6 +4,7 @@ from pathlib import Path
 from h5py import File, Group
 import numpy as np
 
+from ..rois import RoiData
 from ..geometry import Geometry
 from .saving_parameters import SavingParameters, SaveMode
 from ..file_manager import (FileManager, FolderKey, ImageKey,
@@ -55,10 +56,13 @@ class SaveH5(object):
 
         boxes, labels = _get_boxes_n_labels(image_data.roi_data.to_array(), image_data.geometry)
 
+        intensities = _get_intensities(image_data.roi_data)
+
         group = f.create_group(name)
         group.create_dataset('polar_image', data=image_data.polar_image)
         group.create_dataset('boxes', data=boxes)
         group.create_dataset('labels', data=labels)
+        group.create_dataset('intensities', data=intensities)
 
         group.attrs.update(file_key=str(image_key._file_key()))
 
@@ -152,10 +156,10 @@ def _get_folder_group(f: File, name: str) -> Group:
     return f.create_group(name) if name not in f.keys() else f[name]
 
 
-def _get_boxes_n_labels(roi_data: np.ndarray, geometry: Geometry):
+def _get_boxes_n_labels(roi_arr: np.ndarray, geometry: Geometry):
     labels, boxes = [], []
 
-    for r, w, a, a_s, key, roi_type in roi_data:
+    for r, w, a, a_s, key, roi_type in roi_arr:
         x1, x2 = geometry.r2p(r - w / 2), geometry.r2p(r + w / 2)
         y1, y2 = geometry.a2p(a - a_s / 2), geometry.a2p(a + a_s / 2)
 
@@ -164,12 +168,8 @@ def _get_boxes_n_labels(roi_data: np.ndarray, geometry: Geometry):
 
     return np.array(boxes), np.array(labels)
 
-# def _give_h5_name(h5group: Group, name):
-#     if name not in h5group.keys():
-#         return name
-#     num = 0
-#     while True:
-#         new_name = '_'.join((name, str(num)))
-#         if new_name not in h5group.keys():
-#             return new_name
-#         num += 1
+
+def _get_intensities(roi_data: RoiData) -> np.ndarray:
+    # TODO: make a method of roi_data instead
+    # Potentially buggy since the order of dict.values() is not guaranteed to be the same
+    return np.array([roi.intensity for roi in roi_data.values()], dtype=np.float)
