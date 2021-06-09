@@ -55,6 +55,15 @@ class Roi:
         return self.type == RoiTypes.segment
 
     @property
+    def intensity(self) -> float or None:
+        if self.is_fitted:
+            return self.fitted_parameters.get('peak height', None)
+
+    @property
+    def is_fitted(self) -> bool:
+        return bool(self.fitted_parameters)
+
+    @property
     def color_key(self):
         return self.type, self.active, not self.movable
 
