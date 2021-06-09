@@ -36,7 +36,8 @@ _DEFAULT_ROI_COLORS: ROI_COLORS = {
 
 class RoiColorsDict(dict):
     def __init__(self, colors: ROI_COLORS = None):
-        super().__init__(**_DEFAULT_ROI_COLORS)
+        super().__init__()
+        self.update(_DEFAULT_ROI_COLORS)
 
         if colors:
             self.update(colors)
