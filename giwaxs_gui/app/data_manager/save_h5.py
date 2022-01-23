@@ -4,7 +4,6 @@ from pathlib import Path
 from h5py import File, Group
 import numpy as np
 
-from ..rois import RoiData
 from ..geometry import Geometry
 from .saving_parameters import SavingParameters, SaveMode
 from ..file_manager import (FileManager, FolderKey, ImageKey,
@@ -56,13 +55,15 @@ class SaveH5(object):
 
         boxes, labels = _get_boxes_n_labels(image_data.roi_data.to_array(), image_data.geometry)
 
-        intensities = _get_intensities(image_data.roi_data)
+        intensities = image_data.roi_data.intensities
+        confidence_levels = image_data.roi_data.confidence_levels
 
         group = f.create_group(name)
         group.create_dataset('polar_image', data=image_data.polar_image)
         group.create_dataset('boxes', data=boxes)
         group.create_dataset('labels', data=labels)
         group.create_dataset('intensities', data=intensities)
+        group.create_dataset('confidence_levels', data=confidence_levels)
 
         group.attrs.update(file_key=str(image_key._file_key()))
 
@@ -116,10 +117,12 @@ class SaveH5(object):
             self._fm.polar_images.set_h5(img_group, image_key, polar_image)
 
         roi_data = self._fm.rois_data[image_key]
+
         if roi_data:
             self._fm.rois_data.set_h5(img_group, image_key, roi_data)
 
         geometry = self._fm.geometries[image_key]
+
         if geometry and params.save_geometries:
             self._fm.geometries.set_h5(img_group, image_key, geometry)
 
@@ -167,9 +170,3 @@ def _get_boxes_n_labels(roi_arr: np.ndarray, geometry: Geometry):
         boxes.append([x1, y1, x2, y2])
 
     return np.array(boxes), np.array(labels)
-
-
-def _get_intensities(roi_data: RoiData) -> np.ndarray:
-    # TODO: make a method of roi_data instead
-    # Potentially buggy since the order of dict.values() is not guaranteed to be the same
-    return np.array([roi.intensity for roi in roi_data.values()], dtype=np.float)

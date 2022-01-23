@@ -1,7 +1,14 @@
 from typing import Iterable, List, Dict, Any
 
-from PyQt5.QtWidgets import (QWidget, QGridLayout, QTreeWidgetItemIterator,
-                             QPushButton, QTreeWidget, QTreeWidgetItem)
+from PyQt5.QtWidgets import (
+    QWidget,
+    QGridLayout,
+    QTreeWidgetItemIterator,
+    QPushButton,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QSplitter,
+)
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 
 from ...app import Roi, App
@@ -36,11 +43,20 @@ class SelectImagesWindow(QWidget):
         self._cancel_button = QPushButton('Cancel')
 
     def _init_layout(self):
-        layout = QGridLayout(self)
+        common_layout = QGridLayout(self)
+
+        splitter = QSplitter(Qt.Horizontal, self)
+        common_layout.addWidget(splitter)
+
+        left_widget = QWidget(splitter)
+        layout = QGridLayout(left_widget)
         layout.addWidget(self._image_tree_widget, 0, 0, 1, 2)
-        layout.addWidget(self._image_viewer, 0, 2, 2, 1)
         layout.addWidget(self._save_button, 1, 0)
         layout.addWidget(self._cancel_button, 1, 1)
+
+        splitter.addWidget(left_widget)
+        splitter.addWidget(self._image_viewer)
+        splitter.setSizes([200, 600])
 
     def _init_connections(self):
         self._image_tree_widget.sigImageSelected.connect(self._on_image_selected)

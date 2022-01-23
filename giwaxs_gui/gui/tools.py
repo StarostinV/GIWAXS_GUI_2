@@ -28,10 +28,17 @@ class DummySignal(object):
         pass
 
 
-def save_file_dialog(parent, title: str = 'Save File', file_format: str = 'H5 file (*.h5)',
-                     *, exists: bool = False, directory: str = '') -> Path or None:
+def save_file_dialog(parent,
+                     title: str = 'Save File',
+                     file_format: str = 'H5 file (*.h5)',
+                     *, exists: bool = False,
+                     directory: str = '',
+                     native: bool = False,
+                     ) -> Path or None:
     options = QFileDialog.Options()
-    options |= QFileDialog.DontUseNativeDialog
+
+    if not native:
+        options |= QFileDialog.DontUseNativeDialog
 
     if exists:
         filename, _ = QFileDialog.getOpenFileName(parent, title, directory, file_format, options=options)
@@ -57,8 +64,13 @@ def get_image_filepath(parent, message: str = 'Open image') -> Path or None:
 
 
 def get_folder_filepath(parent, message: str, *, show_files: bool = True,
-                        directory: str = '', exists: bool = True) -> Path or None:
-    options = QFileDialog.DontResolveSymlinks | QFileDialog.DontUseNativeDialog
+                        directory: str = '', exists: bool = True, native: bool = False,
+                        ) -> Path or None:
+    options = QFileDialog.DontResolveSymlinks
+
+    if not native:
+        options |= QFileDialog.DontUseNativeDialog
+
     if not show_files:
         options |= QFileDialog.ShowDirsOnly
 
@@ -99,6 +111,14 @@ def show_error(err: str, *, error_title: str = 'Internal Error', info_text: str 
     if info_text:
         mb.setInformativeText(info_text)
     mb.exec_()
+
+
+def show_info(title: str, txt: str):
+    msg = QMessageBox()
+    msg.setText(txt)
+    msg.setWindowTitle(title)
+    msg.setStandardButtons(QMessageBox.Ok)
+    return msg.exec_()
 
 
 class Icon(QIcon):

@@ -2,8 +2,12 @@ from typing import Dict
 
 from PyQt5.QtWidgets import QWidget, QGridLayout, QCheckBox, QComboBox
 
-from ...app.data_manager import (SavingParameters, SaveFormats, TextFormats,
-                                 MetaTextFormats)
+from ...app.data_manager import (
+    SavingParameters,
+    SaveFormats,
+    TextFormats,
+    MetaTextFormats,
+)
 from ...gui.basic_widgets import Label
 
 
@@ -12,7 +16,7 @@ class OptionsWidget(QWidget):
         super().__init__(parent)
         self._current_format = None
         self._init_ui(saving_parameters)
-        self.set_format(SaveFormats.h5)
+        self.set_format(SaveFormats.h5_project)
 
     def _init_ui(self, saving_parameters: SavingParameters):
         self.bool_options = BoolOptionsWidget(saving_parameters, self)
@@ -28,7 +32,10 @@ class OptionsWidget(QWidget):
             elif save_format.value == SaveFormats.text.value:
                 self.bool_options.setDisabled(False)
                 self.text_options.setHidden(False)
-            elif save_format.value == SaveFormats.object_detection.value:
+            elif save_format.value in (
+                    SaveFormats.object_detection.value,
+                    SaveFormats.h5_project.value,
+            ):
                 self.bool_options.setDisabled(True)
                 self.text_options.setHidden(True)
             else:

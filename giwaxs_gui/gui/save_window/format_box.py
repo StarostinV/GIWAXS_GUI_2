@@ -9,10 +9,10 @@ class FormatBox(QComboBox):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self._current_format: SaveFormats = SaveFormats.h5
+        self._current_format: SaveFormats = SaveFormats.h5_project
         self.addItems([save_format.value for save_format in SaveFormats])
         self.currentTextChanged.connect(self._format_changed)
-        self.setCurrentText(SaveFormats.h5.value)
+        self.setCurrentText(SaveFormats.h5_project.value)
 
     @property
     def save_format(self) -> SaveFormats:

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtGui import QCursor
+from PyQt5.QtGui import QCursor, QDoubleValidator
 from PyQt5.QtWidgets import QMenu, QWidgetAction, QLineEdit
 
 from ...app.app import App
@@ -26,6 +26,7 @@ class AbstractRoiContextMenu(QMenu):
 class RoiContextMenu(AbstractRoiContextMenu):
     def _init_menu(self):
         self._init_rename_menu()
+        self._init_conf_level_menu()
         self.addSeparator()
         self._init_type_menu()
         self.addSeparator()
@@ -82,6 +83,18 @@ class RoiContextMenu(AbstractRoiContextMenu):
         )
         rename_action.setDefaultWidget(line_edit)
         rename.addAction(rename_action)
+
+    def _init_conf_level_menu(self):
+        conf_level = self.addMenu('Confidence level')
+        conf_level_action = QWidgetAction(self)
+        line_edit = QLineEdit(str(self.roi.confidence_level))
+        validator = QDoubleValidator(-1., 1., 1, line_edit)
+        line_edit.setValidator(validator)
+        line_edit.editingFinished.connect(
+            lambda: self.roi_dict.change_conf_level(self.key, float(line_edit.text()))
+        )
+        conf_level_action.setDefaultWidget(line_edit)
+        conf_level.addAction(conf_level_action)
 
     def _init_type_menu(self):
         available_types = []

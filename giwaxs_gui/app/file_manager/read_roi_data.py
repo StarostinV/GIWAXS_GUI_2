@@ -10,13 +10,21 @@ class _ReadRoiData(_ObjectFileManager):
     @staticmethod
     def get_h5(h5group: Group, key):
         if 'roi_data' in h5group.keys():
-            return RoiData.from_array(h5group['roi_data'][()])
+            roi_dict = {
+                k: v[()] for k, v in h5group['roi_data'].items()
+            }
+            roi_data = RoiData.from_dict(roi_dict)
+            return roi_data
 
     @staticmethod
     def set_h5(h5group: Group, key, value: RoiData):
         if 'roi_data' in h5group.keys():
             del h5group['roi_data']
-        h5group.create_dataset('roi_data', data=value.to_array())
+
+        rois_dict = value.to_dict()
+        roi_group = h5group.create_group('roi_data')
+        for key, arr in rois_dict.items():
+            roi_group.create_dataset(key, data=arr)
 
     @staticmethod
     def del_h5(h5group: Group, key):

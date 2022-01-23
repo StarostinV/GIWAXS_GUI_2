@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from typing import List
 
-from h5py import File, Group
+from h5py import Group
 
 from PyQt5.QtCore import pyqtSignal, QObject
 
@@ -97,6 +97,7 @@ class FileManager(QObject):
             self.sigNewFile.emit(key)
         elif isinstance(key, FolderKey):
             self.sigNewFolder.emit(key)
+        return key
 
     def remove_key(self, key) -> None:
         self._project_structure.root.remove_key(key)
@@ -162,33 +163,6 @@ class FileManager(QObject):
             self.sigNewFolder.emit(key)
         for key in self._project_structure.root.image_children:
             self.sigNewFile.emit(key)
-
-    def save_as_h5(self, h5path: Path):
-        # TODO remove and use data_manager
-        with File(str(h5path.resolve()), 'w') as f:
-            f.attrs[PROJECT_KEY] = True
-        self._save_folder_as_h5(h5path, self._project_structure.root)
-
-    def _save_folder_as_h5(self, h5path: Path, folder_key: FolderKey):
-        if folder_key.images_num > 0:
-            with File(str(h5path.resolve()), 'a') as f:
-                group = f.create_group(_give_h5_name(f, folder_key.name))
-
-                for image in folder_key.image_children:
-                    self._save_image_as_h5(group, image)
-        for folder in folder_key.folder_children:
-            self._save_folder_as_h5(h5path, folder)
-
-    def _save_image_as_h5(self, h5group: Group, image_key: ImageKey):
-        img_group = h5group.create_group(_give_h5_name(h5group, image_key.name))
-        img_group.attrs[IMAGE_PROJECT_KEY] = True
-        self.images.set_h5(img_group, image_key, image_key.get_image())
-        roi_data = self.rois_data[image_key]
-        if roi_data:
-            self.rois_data.set_h5(img_group, image_key, roi_data)
-        geometry = self.geometries[image_key] or self.geometries.default[image_key.parent]
-        if geometry:
-            self.geometries.set_h5(img_group, image_key, geometry)
 
     def __len__(self):
         return len(self.paths)

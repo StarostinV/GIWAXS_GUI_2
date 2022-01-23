@@ -6,7 +6,13 @@ import numpy as np
 
 from .utils import Roi
 
-__all__ = ['BackgroundType', 'BACKGROUNDS', 'Background', 'LinearBackground', 'ConstantBackground']
+__all__ = [
+    'BackgroundType',
+    'BACKGROUNDS',
+    'Background',
+    'LinearBackground',
+    'ConstantBackground',
+]
 
 
 class BackgroundType(Enum):

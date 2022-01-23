@@ -7,9 +7,10 @@ from ..file_manager import FolderKey, ImageKey
 
 
 class SaveFormats(Enum):
-    h5 = 'H5 format'
+    h5_project = 'Save as h5 project'
+    object_detection = 'Save as dataset'
+    h5 = 'Generic h5 format'
     text = 'Text formats'
-    object_detection = 'For object detection'
 
 
 class TextFormats(Enum):
@@ -59,4 +60,19 @@ class SavingParameters:
                   'save_positions': 'Save roi positions',
                   'save_roi_types': 'Save roi types',
                   'save_roi_keys': 'Save roi keys',
-                  'save_roi_metadata': 'Save roi names'}
+                  'save_roi_metadata': 'Save roi names',
+                  }
+
+    def set_h5_project_params(self):
+        self.save_image = True
+        self.save_polar_image = True
+        self.save_geometries = True
+        self.save_baselines = False  # ?
+        self.save_positions = True
+        self.save_roi_types = True
+        self.save_roi_keys = True
+        self.save_roi_metadata = True
+
+    @property
+    def num_images(self) -> int:
+        return sum(map(len, self.selected_images.values()))

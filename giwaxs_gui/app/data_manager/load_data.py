@@ -1,5 +1,6 @@
 from enum import Flag, auto
 from typing import NamedTuple
+from pathlib import Path
 
 from numpy import ndarray
 
@@ -7,6 +8,7 @@ from ..geometry import Geometry
 from ..image_holder import ImageHolder
 from ..file_manager import ImageKey, FolderKey, FileManager
 from ..rois import RoiData, RoiMetaData
+from .load_from_h5 import LoadProjectFromH5
 
 
 class ImageData(NamedTuple):
@@ -42,6 +44,7 @@ class LoadData(object):
     def __init__(self, fm: FileManager, image_holder: ImageHolder):
         self._image_holder: ImageHolder = image_holder
         self._fm: FileManager = fm
+        self.load_project_from_h5 = LoadProjectFromH5(self._fm)
 
     def load_image_data(self, image_key: ImageKey,
                         flags: ImageDataFlags = ImageDataFlags.ALL) -> ImageData:
@@ -84,3 +87,6 @@ class LoadData(object):
             geometry = self._fm.geometries.default[folder_key]
         return FolderData(folder_key=folder_key, roi_metadata=roi_metadata,
                           default_geometry=geometry)
+
+    def load_project_from_h5(self, project_path: Path, h5path: Path):
+        return self.load_project_from_h5.load(project_path, h5path)

@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import numpy as np
 
@@ -137,3 +137,31 @@ class RoiData(dict):
     @classmethod
     def from_array(cls, arr: np.ndarray):
         return cls([Roi.from_array(a) for a in arr])
+
+    def to_dict(self) -> Dict[str, np.ndarray]:
+        roi_dicts = [roi.to_dict() for roi in self.values()]
+        keys = set().union(*[d.keys() for d in roi_dicts])
+        res = {k: np.array([d.get(k, np.nan) for d in roi_dicts]) for k in keys}
+        return res
+
+    @classmethod
+    def from_dict(cls, arr_dict: Dict[str, np.ndarray]):
+        keys = list(arr_dict.keys())
+        if not keys:
+            return cls()
+        num_rois = len(arr_dict[keys[0]])
+        rois = [
+            Roi.from_dict({
+                k: arr_dict[k][i] for k in arr_dict.keys() if not np.isnan(arr_dict[k][i])
+            })
+            for i in range(num_rois)
+        ]
+        return cls(rois)
+
+    @property
+    def intensities(self):
+        return np.array([roi.intensity for roi in self.values()], dtype=np.float)
+
+    @property
+    def confidence_levels(self):
+        return np.array([roi.confidence_level for roi in self.values()], dtype=np.float)

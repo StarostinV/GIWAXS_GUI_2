@@ -15,3 +15,8 @@ class SaveData(object):
             self._save_h5.save(params)
         elif params.format.value == SaveFormats.object_detection.value:
             self._save_h5.save_for_object_detection(params)
+        elif params.format.value == SaveFormats.h5_project.value:
+            params.set_h5_project_params()
+            self._save_h5.save(params)
+        else:
+            raise ValueError("Save format is not yet supported.")

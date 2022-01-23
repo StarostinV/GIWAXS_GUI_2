@@ -5,6 +5,31 @@ from typing import Tuple
 import numpy as np
 
 
+# import giwaxs_gui.app.fitting as fit
+
+
+class PostponedImport(object):
+    def __init__(self):
+        self._module = None
+
+    @classmethod
+    def init_module(cls):
+        pass
+
+    @classmethod
+    def __getattr__(cls, item):
+        if not hasattr(cls, '_module'):
+            cls.init_module()
+        return cls._module.__getattr__(item)
+
+
+class Fit(PostponedImport):
+    @classmethod
+    def init_module(cls):
+        import giwaxs_gui.app.fitting as fit
+        cls._module = fit
+
+
 class RoiTypes(Enum):
     ring = 1
     segment = 2
@@ -29,6 +54,7 @@ class Roi:
     fitted_parameters: dict = None
     active: bool = False
     deleted: bool = False
+    confidence_level: float = -1.
 
     def update(self, other: 'Roi'):
         self.__dict__ = other.__dict__
@@ -45,11 +71,11 @@ class Roi:
 
     def should_adjust_angles(self, angle: float, angle_std: float) -> bool:
         return (
-            self.type == RoiTypes.ring or
-            self.type == RoiTypes.background
+                       self.type == RoiTypes.ring or
+                       self.type == RoiTypes.background
                ) and (
-            self.angle != angle or self.angle_std != angle_std
-        )
+                       self.angle != angle or self.angle_std != angle_std
+               )
 
     def has_fixed_angles(self) -> bool:
         return self.type == RoiTypes.segment
@@ -67,9 +93,51 @@ class Roi:
     def color_key(self):
         return self.type, self.active, not self.movable
 
+    def to_dict(self) -> dict:
+        roi_dict = dict(self.fitted_parameters or {})
 
-DTYPES = [('radius', 'f4'), ('width', 'f4'), ('angle', 'f4'), ('angle_std', 'f4'),
-          ('key', 'i4'), ('type', 'i4')]
+        roi_dict.update({
+            key: getattr(self, key) for key in ROI_DICT_KEYS
+        })
+
+        roi_dict['type'] = roi_dict['type'].value
+
+        return roi_dict
+
+    @classmethod
+    def from_dict(cls, roi_dict: dict, **kwargs):
+        cls_params = {key: roi_dict[key] for key in ROI_DICT_KEYS if key in roi_dict}
+        cls_params['type'] = RoiTypes(cls_params.get('type', 1))
+
+        if 'fitting_function' in roi_dict:
+            fit_func_name = roi_dict['fitting_function']
+            fit_func = Fit.FITTING_FUNCTIONS[Fit.FittingType(fit_func_name)]
+            fit_param_keys = fit_func.PARAM_NAMES
+            fitted_parameters = {'fitting_function': fit_func_name}
+            fitted_parameters.update({p: roi_dict[p] for p in fit_param_keys if p in roi_dict})
+            cls_params['fitted_parameters'] = fitted_parameters
+
+        return cls(**cls_params, **kwargs)
+
+
+ROI_DICT_KEYS = (
+    'radius',
+    'width',
+    'angle',
+    'angle_std',
+    'key',
+    'type',
+    'confidence_level',
+)
+
+DTYPES = [
+    ('radius', 'f4'),
+    ('width', 'f4'),
+    ('angle', 'f4'),
+    ('angle_std', 'f4'),
+    ('key', 'i4'),
+    ('type', 'i4')
+]
 
 _ROI_NAMES = list(map(lambda x: x[0], DTYPES))
 

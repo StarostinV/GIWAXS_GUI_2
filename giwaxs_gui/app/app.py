@@ -16,7 +16,7 @@ from .structures import CrystalsDatabase
 class App(metaclass=SingletonMeta):
     log = logging.getLogger(__name__)
 
-    def __init__(self, config_path: Path = None):
+    def __init__(self, config_path: Path = None, *, _connect: bool = True):
         self.fm: FileManager = FileManager(config_path)
         self.geometry_holder: GeometryHolder = GeometryHolder(self.fm)
         self.roi_dict: RoiDict = RoiDict(self.fm, self.geometry_holder)
@@ -26,7 +26,8 @@ class App(metaclass=SingletonMeta):
         self.data_manager: DataManager = DataManager(self.fm, self.image_holder)
         self.crystals_database: CrystalsDatabase = CrystalsDatabase()
 
-        self._connect_app()
+        if _connect:
+            self._connect_app()
 
         self.debug_tracker: TrackQObjects or None = None
         if self.log.level <= logging.DEBUG:

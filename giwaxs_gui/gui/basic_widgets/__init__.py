@@ -9,3 +9,4 @@ from .popups import PopUpWrapper, TextNotification
 from .labels import LabelButton, Label, HyperlinkLabel
 from .mouse_events import MouseEventsController, ViewBoxMouseEvents, DrawRoiController
 from .progress_bar import ProgressBar
+from .path_line import PathLine, PathLineModes, H5PathLine

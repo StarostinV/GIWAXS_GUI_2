@@ -11,6 +11,7 @@ from .profiles.radial_profile_widget import RadialProfileWidget
 from .profiles.angular_profile_widget import AngularProfileWidget
 from .fitting import FitWidget
 from .save_window import SaveWindow
+from .load_window import LoadFromH5Widget
 from .crystal_viewer import MainCrystalViewer
 from .structures.crystal_image_viewer import CrystalImageWidget
 from .structures import CrystalsController
@@ -46,6 +47,12 @@ class AppDockArea(DockArea):
         self._fit_widget = None
 
         self.app.image_holder.sigFitOpen.connect(self._open_fit_widget)
+
+    def open_load_from_h5_window(self):
+        self.app.save_state()
+        load_window = LoadFromH5Widget(self)
+        load_window.sigLoadClicked.connect(self.app.data_manager.load_project_from_h5)
+        load_window.show()
 
     def open_save_window(self):
         self.app.save_state()

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import os
 import logging
 from typing import List
 from pathlib import Path
@@ -102,8 +101,12 @@ class InitWindow(QWidget):
 
     @pyqtSlot(str, name='onTextEditing')
     def _on_text_editing(self, path: str):
-        self.project_name = path.split(os.sep)[-1]
-        self.project_path = self.project_path.parent / self.project_name
+        path = Path(path)
+        folder, name = path.parent, path.name
+        if not folder.is_dir():
+            folder = self.project_path.parent
+        self.project_name = name
+        self.project_path = folder / name
         self.create_button.setText(f'Create project "{self.project_name}"')
 
     @pyqtSlot(name='NewProjectDialog')

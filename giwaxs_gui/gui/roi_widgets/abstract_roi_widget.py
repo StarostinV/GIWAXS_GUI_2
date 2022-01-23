@@ -95,6 +95,9 @@ class AbstractRoiWidget(object):
     def rename(self):
         pass
 
+    def change_conf_level(self):
+        pass
+
     def change_type(self):
         pass
 

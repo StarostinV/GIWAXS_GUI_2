@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import QWidgetAction
 
 from pyqtgraph import (GraphicsLayoutWidget, setConfigOptions,
@@ -10,23 +10,37 @@ from pyqtgraph import (GraphicsLayoutWidget, setConfigOptions,
 from pyqtgraph.graphicsItems.ViewBox.ViewBoxMenu import ViewBoxMenu
 
 from giwaxs_gui.gui.basic_widgets.sliders import LabeledSlider
+from giwaxs_gui.app.image_processing import standard_contrast_correction
 
 
 class CustomViewBoxMenu(ViewBoxMenu):
     sigSigmaChanged = pyqtSignal(float)
     sigRangeAsDefault = pyqtSignal()
+    sigUseClahe = pyqtSignal(bool)
 
     def __init__(self, view, sigma: float = 3):
         super().__init__(view)
+        self._use_clahe = True
         self.slider = LabeledSlider('Clip sigma factor', bounds=(0.001, 4),
                                     value=sigma, parent=self)
         self.slider.valueChanged.connect(self.sigSigmaChanged.emit)
         self.addAction('Set range as default', lambda *x: self.sigRangeAsDefault.emit())
+        self.clahe_action = self.addAction('Disable CLAHE', self._use_clahe_changed)
         self.sigma_factor_menu = self.addMenu('Set sigma factor')
         action = QWidgetAction(self)
 
         action.setDefaultWidget(self.slider)
         self.sigma_factor_menu.addAction(action)
+
+    @pyqtSlot()
+    def _use_clahe_changed(self):
+        self._use_clahe = not self._use_clahe
+
+        if self._use_clahe:
+            self.clahe_action.setText("Disable CLAHE")
+        else:
+            self.clahe_action.setText("Enable CLAHE")
+        self.sigUseClahe.emit(self._use_clahe)
 
 
 class CustomImageViewer(GraphicsLayoutWidget):
@@ -34,9 +48,18 @@ class CustomImageViewer(GraphicsLayoutWidget):
     def view_box(self):
         return self.image_plot.vb
 
-    def __init__(self, parent=None, *, hist_range: tuple = None, sigma_factor: float = 3, **kwargs):
+    def __init__(self,
+                 parent=None, *,
+                 hist_range: tuple = None,
+                 sigma_factor: float = 3,
+                 **kwargs
+                 ):
         setConfigOptions(imageAxisOrder='row-major')
         super(CustomImageViewer, self).__init__(parent)
+
+        self._raw_data = None
+        self._use_clahe: bool = True
+
         self._scale = (1., 1.)
         self._center = (0, 0)
 
@@ -59,10 +82,17 @@ class CustomImageViewer(GraphicsLayoutWidget):
         self.hist.vb.menu = CustomViewBoxMenu(self.hist.vb)
         self.hist.vb.menu.sigSigmaChanged.connect(self.set_sigma_factor)
         self.hist.vb.menu.sigRangeAsDefault.connect(self.set_limit_as_default)
+        self.hist.vb.menu.sigUseClahe.connect(self.enable_clahe)
 
     def set_data(self, data, *, reset_axes: bool = False):
+        self._raw_data = data
+
         if data is None:
             return
+
+        if self._use_clahe:
+            data = standard_contrast_correction(data)
+
         self.image_item.setImage(data)
         self.set_levels()
         if reset_axes:
@@ -82,6 +112,11 @@ class CustomImageViewer(GraphicsLayoutWidget):
         axes = self.get_axes()
         self.image_plot.setRange(xRange=axes[1], yRange=axes[0])
 
+    @pyqtSlot(bool)
+    def enable_clahe(self, enable: bool):
+        self._use_clahe = enable
+        self.set_data(self._raw_data)
+
     def set_auto_range(self):
         self.image_plot.autoRange()
 
@@ -99,10 +134,12 @@ class CustomImageViewer(GraphicsLayoutWidget):
             self.hist.setLevels(self.image_item.image.min(),
                                 self.image_item.image.max())
 
+    @pyqtSlot(float)
     def set_sigma_factor(self, sigma_factor: float):
         self._sigma_factor = sigma_factor
         self.set_levels()
 
+    @pyqtSlot()
     def set_limit_as_default(self):
         self._hist_range = self.hist.getLevels()
         self._sigma_factor = None

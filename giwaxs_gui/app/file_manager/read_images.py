@@ -21,5 +21,7 @@ class _ReadImage(_ReadNpy):
             del h5group['image']
 
     def __getitem__(self, key):
+        internal_path = self._get_path(key)
+        if internal_path.is_file():
+            return self._get_pickle(internal_path)
         return key.get_image()
-

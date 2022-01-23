@@ -38,6 +38,8 @@ class RoiDict(QObject):
     sigFitRoisOpen = pyqtSignal(list)
     sigColorChanged = pyqtSignal(tuple)
 
+    sigConfLevelChanged = pyqtSignal(int)
+
     EMIT_NAME = 'RoiDict'
 
     log = logging.getLogger(__name__)
@@ -174,6 +176,12 @@ class RoiDict(QObject):
         self._meta_data.rename(self[key], name)
         self.sig_roi_renamed.emit(key)
         self.log.info(f'Roi {key} renamed to {name}')
+
+    @pyqtSlot(int, float, name='changeConfLevel')
+    def change_conf_level(self, key: int, level: float):
+        self._roi_data[key].confidence_level = level
+        self.sigConfLevelChanged.emit(key)
+        self.log.info(f'Roi {key} conf level changed to {level}')
 
     def _emit_select(self, keys: Iterable[int]):
         if keys:
