@@ -46,7 +46,7 @@ setup(
         'scipy>=1.4.1',
         'h5py>=2.10.0',
         'PyQt5',
-        'pyqtgraph==0.11.0rc0',
+        'pyqtgraph',
         'PyOpenGL',
         'PyGLM',
         'read_edf',
