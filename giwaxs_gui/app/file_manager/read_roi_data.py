@@ -1,7 +1,11 @@
+import logging
+
 from h5py import Group
 
 from .object_file_manager import _ObjectFileManager
 from ..rois.roi_data import RoiData
+
+logger = logging.getLogger(__name__)
 
 
 class _ReadRoiData(_ObjectFileManager):
@@ -24,7 +28,10 @@ class _ReadRoiData(_ObjectFileManager):
         rois_dict = value.to_dict()
         roi_group = h5group.create_group('roi_data')
         for key, arr in rois_dict.items():
-            roi_group.create_dataset(key, data=arr)
+            try:
+                roi_group.create_dataset(key, data=arr)
+            except Exception as err:
+                logger.exception(err)
 
     @staticmethod
     def del_h5(h5group: Group, key):
