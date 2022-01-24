@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import QMenu, QWidgetAction, QLineEdit
 
 from ...app.app import App
 from ...app.rois.roi import Roi, RoiTypes
+from .confidence_level_widget import SetConfidenceLevelWidget
 
 
 class AbstractRoiContextMenu(QMenu):
@@ -85,16 +86,18 @@ class RoiContextMenu(AbstractRoiContextMenu):
         rename.addAction(rename_action)
 
     def _init_conf_level_menu(self):
-        conf_level = self.addMenu('Confidence level')
-        conf_level_action = QWidgetAction(self)
-        line_edit = QLineEdit(str(self.roi.confidence_level))
-        validator = QDoubleValidator(-1., 1., 1, line_edit)
-        line_edit.setValidator(validator)
-        line_edit.editingFinished.connect(
-            lambda: self.roi_dict.change_conf_level(self.key, float(line_edit.text()))
-        )
-        conf_level_action.setDefaultWidget(line_edit)
-        conf_level.addAction(conf_level_action)
+        conf_level = self.addAction(f'Change confidence ({self.roi.confidence_level_name})')
+        conf_level.triggered.connect(self._change_confidence_widget)
+
+    def _change_confidence_widget(self, *args):
+        widget = SetConfidenceLevelWidget(self.roi.confidence_level_name)
+        widget.sigSetConfidenceLevel.connect(self._conf_level_changed)
+        widget.move(QCursor.pos())
+        widget.show()
+        self._conf_widget = widget
+
+    def _conf_level_changed(self, level: float):
+        self.roi_dict.change_conf_level(self.roi.key, level)
 
     def _init_type_menu(self):
         available_types = []

@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from dataclasses import dataclass
 from enum import Enum
 from typing import Tuple
@@ -39,6 +40,15 @@ class RoiTypes(Enum):
 # (type, selected, fixed): (r, g, b)
 ROI_COLOR_KEY = Tuple[RoiTypes, bool, bool]
 
+_CONFIDENCE_LEVELS = OrderedDict([
+    ('High', 1.),
+    ('Medium', 0.5),
+    ('Low', 0.1),
+    ('Not set', -1.),
+])
+
+_DEFAULT_CONFIDENCE_LEVEL = 'Not set'
+
 
 @dataclass
 class Roi:
@@ -55,6 +65,30 @@ class Roi:
     active: bool = False
     deleted: bool = False
     confidence_level: float = -1.
+
+    CONFIDENCE_LEVELS = _CONFIDENCE_LEVELS
+    DEFAULT_CONFIDENCE_LEVEL = _DEFAULT_CONFIDENCE_LEVEL
+
+    @staticmethod
+    def confidence_name2level(name: str):
+        if name not in _CONFIDENCE_LEVELS.keys():
+            return _CONFIDENCE_LEVELS[_DEFAULT_CONFIDENCE_LEVEL]
+        for level_name, level in _CONFIDENCE_LEVELS.items():
+            if name == level_name:
+                return level
+
+    @staticmethod
+    def confidence_level2name(level: float):
+        values = np.array(list(_CONFIDENCE_LEVELS.values()))
+        idx = np.argmin(np.abs(level - values))
+        return list(_CONFIDENCE_LEVELS.items())[idx][0]
+
+    @property
+    def confidence_level_name(self):
+        return self.confidence_level2name(self.confidence_level)
+
+    def set_confidence_level(self, level: float):
+        self.confidence_level = level
 
     def update(self, other: 'Roi'):
         self.__dict__ = other.__dict__

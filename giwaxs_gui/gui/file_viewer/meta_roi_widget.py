@@ -38,7 +38,7 @@ class RoiWidgetItem(AbstractRoiWidget, QObject):
                               ('width', 'Width'),
                               ('angle', 'Angle'),
                               ('angle_std', 'Angle Width'),
-                              ('confidence_level', 'Confidence level'),
+                              ('confidence_level_name', 'Confidence level'),
                               ('key', 'Key')])
 
     def __init__(self, roi: Roi, parent):
@@ -58,7 +58,7 @@ class RoiWidgetItem(AbstractRoiWidget, QObject):
         items = dict(name=StandardItem(self.roi.name, roi_key),
                      key=StandardItem(str(self.roi.key), roi_key),
                      type=StandardItem(str(self.roi.type.name), roi_key, False),
-                     confidence_level=StandardItem(str(self.roi.confidence_level), roi_key)
+                     confidence_level_name=StandardItem(str(self.roi.confidence_level_name), roi_key)
                      )
         for key in 'radius width angle angle_std'.split():
             items[key] = StandardItem('', roi_key)
@@ -76,7 +76,7 @@ class RoiWidgetItem(AbstractRoiWidget, QObject):
         pass
 
     def change_conf_level(self):
-        self.__items['confidence_level'].setText(str(self.roi.confidence_level))
+        self.__items['confidence_level_name'].setText(str(self.roi.confidence_level_name))
 
     def rename(self):
         self.__items['name'].setText(self.roi.name)
