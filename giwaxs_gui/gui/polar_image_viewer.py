@@ -16,6 +16,11 @@ from ..app.polar_image import INTERPOLATION_ALGORITHMS
 from .tools import Icon
 
 
+class _PolarCustomImageViewer(CustomImageViewer):
+    def set_default_range(self):
+        return self.set_auto_range()
+
+
 class PolarImageViewer(AbstractRoiHolder, QMainWindow):
 
     def __init__(self, parent=None):
@@ -24,7 +29,7 @@ class PolarImageViewer(AbstractRoiHolder, QMainWindow):
         self.app = App()
         self._setup_window = None
         self._interpolation_params_dict: dict = InterpolateSetupWindow.get_config()
-        self._image_viewer = CustomImageViewer(self)
+        self._image_viewer = _PolarCustomImageViewer(self)
 
         self.register_key_patch()
 
