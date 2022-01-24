@@ -99,8 +99,11 @@ class SaveH5(object):
             if roi_metadata:
                 self._fm.rois_meta_data.set_h5(group, folder_key, roi_metadata)
 
-    def _save_image_as_h5(self, h5group: Group, image_key: ImageKey,
-                          params: SavingParameters):
+    def _save_image_as_h5(self,
+                          h5group: Group,
+                          image_key: ImageKey,
+                          params: SavingParameters
+                          ):
 
         if image_key.name in h5group.keys():
             del h5group[image_key.name]
