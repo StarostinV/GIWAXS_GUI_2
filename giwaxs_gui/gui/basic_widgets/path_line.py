@@ -90,8 +90,10 @@ class PathLine(QLineEdit):
             return False
 
         if self.mode.value == PathLineModes.new_file.value:
+            return True
             return ('' in self.FILE_FORMATS or path.suffix in self.FILE_FORMATS) and not path.is_file()
         if self.mode.value == PathLineModes.existing_file.value:
+            return True
             return ('' in self.FILE_FORMATS or path.suffix in self.FILE_FORMATS) and path.is_file()
         return path.is_dir()
 
@@ -110,7 +112,7 @@ class PathLine(QLineEdit):
 
 
 class H5PathLine(PathLine):
-    FILE_FORMATS = ('.h5',)
+    FILE_FORMATS = ('h5',)
     FILE_NAME = 'H5 file'
     NEW_FILE_TITLE = 'New h5 file'
     EXISTING_FILE_TITLE = 'Existing h5 file'
