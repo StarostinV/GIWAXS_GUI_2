@@ -78,10 +78,7 @@ class Geometry(object):
         if type(other) != Geometry:
             return False
 
-        return (self.beam_center == other.beam_center and
-                self.scale == other.scale and
-                self.shape == other.shape and
-                self.t.key == other.t.key)
+        return self.to_dict() == other.to_dict()
 
     @property
     def t(self):
