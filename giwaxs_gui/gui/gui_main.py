@@ -277,11 +277,14 @@ class GIWAXSMainWindow(QMainWindow):
         angular_profile = docks_toolbar.addAction(Icon('angular_profile'), 'Angular profile')
         angular_profile.triggered.connect(lambda: self.dock_area.show_hide_docks('angular_profile'))
 
-        interpolation = docks_toolbar.addAction(Icon('interpolate'), 'Polar Viewer')
-        interpolation.triggered.connect(lambda: self.dock_area.show_hide_docks('polar'))
+        polar_viewer = docks_toolbar.addAction(Icon('interpolate'), 'Polar Viewer')
+        polar_viewer.triggered.connect(lambda: self.dock_area.show_hide_docks('polar'))
 
         crystal_database = docks_toolbar.addAction(Icon('data'), 'Crystal Database')
         crystal_database.triggered.connect(self.dock_area.show_hide_crystal_database)
+
+        fit_view = docks_toolbar.addAction(Icon('fit'), 'Fit Viewer')
+        fit_view.triggered.connect(lambda: self.dock_area.show_hide_docks('fit_view'))
 
         self.gen_toolbar = ToolBar('General')
         self.addToolBar(self.gen_toolbar)

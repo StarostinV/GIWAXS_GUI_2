@@ -30,7 +30,6 @@ class Roi2DRect(AbstractRoiWidget, RectROI):
         if App().debug_tracker:
             App().debug_tracker.add_object(self, roi.name)
 
-
     def _handle_is_moving(self):
         for h in self.handles:
             if h['item'].isMoving:

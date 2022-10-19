@@ -4,9 +4,14 @@ from enum import Enum
 
 import numpy as np
 
-from PyQt5.QtWidgets import (QMainWindow, QWidget,
-                             QFrame, QHBoxLayout,
-                             QVBoxLayout, QPushButton)
+from PyQt5.QtWidgets import (
+    QMainWindow,
+    QWidget,
+    QFrame,
+    QHBoxLayout,
+    QVBoxLayout,
+    QPushButton,
+)
 from PyQt5.QtGui import QColor, QPen
 from PyQt5.QtCore import Qt, pyqtSignal
 

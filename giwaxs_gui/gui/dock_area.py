@@ -9,7 +9,7 @@ from .polar_image_viewer import PolarImageViewer
 from .file_viewer import MainFileWidget
 from .profiles.radial_profile_widget import RadialProfileWidget
 from .profiles.angular_profile_widget import AngularProfileWidget
-from .fitting import FitWidget
+from .fitting import FitWidget, RoiFitWidget
 from .save_window import SaveWindow
 from .load_window import LoadFromH5Widget
 from .crystal_viewer import MainCrystalViewer
@@ -32,6 +32,7 @@ class AppDockArea(DockArea):
         # self.__init_control_widget__()
         self.__init_radial_widget()
         self.__init_file_widget()
+        self.__init_fit_viewer()
         self.__init_angular_widget()
         self.__init_crystal_image_widget()
 
@@ -41,7 +42,8 @@ class AppDockArea(DockArea):
             'radial_profile': self.radial_profile_dock,
             'file_widget': self.file_dock,
             'angular_profile': self.angular_profile_dock,
-            'crystal_image': self.crystal_image_viewer_dock
+            'crystal_image': self.crystal_image_viewer_dock,
+            'fit_view': self.fit_view_dock,
         }
         self._apply_default_view()
         self._fit_widget = None
@@ -69,6 +71,7 @@ class AppDockArea(DockArea):
         self.show_hide_docks('radial_profile')
         self.show_hide_docks('angular_profile')
         self.show_hide_docks('crystal_image')
+        self.show_hide_docks('fit_view')
         # self.show_hide_docks('control')
 
     def __init_image_viewer(self):
@@ -77,6 +80,13 @@ class AppDockArea(DockArea):
         dock.addWidget(self.image_view)
         self.addDock(dock, size=(1000, 1000))
         self.image_viewer_dock = dock
+
+    def __init_fit_viewer(self):
+        self.fit_view = RoiFitWidget(self)
+        dock = Dock('RoiFitWidget')
+        dock.addWidget(self.fit_view)
+        self.addDock(dock, size=(1000, 1000), position='right', relativeTo=self.image_viewer_dock)
+        self.fit_view_dock = dock
 
     def __init_polar_viewer(self):
         self.polar_view = PolarImageViewer(self)

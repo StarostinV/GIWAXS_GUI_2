@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Type
 import numpy as np
 from copy import deepcopy
 
@@ -35,8 +35,8 @@ class FitObject(object):
         self.is_fitted: bool = False
         self.saved_profile: SavedProfile or None = None
 
-        self.default_fitting: FittingFunction.__class__ = Gaussian
-        self.default_background: Background.__class__ = LinearBackground
+        self.default_fitting: Type[FittingFunction] = Gaussian
+        self.default_background: Type[Background] = LinearBackground
         self.default_range_strategy: RangeStrategy = RangeStrategy()
         self.default_sigma: float = 0
 

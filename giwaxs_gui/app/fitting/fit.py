@@ -35,6 +35,8 @@ class Fit:
     background: Background
     range_strategy: RangeStrategy
     sigma: float = None
+    x_profile: np.ndarray = None
+    y_profile: np.ndarray = None
 
     @property
     def param_names(self):
@@ -87,10 +89,31 @@ class Fit:
             self.fitting_curve = func(self.x, *popt)
             self.background_curve = self.background(self.x, *popt)
             self.init_curve = self.fitting_curve
-            self.roi.fitted_parameters = dict(zip(self.param_names, self.fitted_params))
-            self.roi.fitted_parameters['fitting_function'] = self.fitting_function.TYPE
-            self.roi.fitted_parameters['background'] = self.background.TYPE
+            self.update_roi_fit_dict()
             self.fitting_function.set_roi_from_params(self.roi, self.fitted_params)
 
         except (ValueError, RuntimeError):
             return
+
+    def set_roi_from_params(self, params=None):
+        if params is None:
+            if self.fitted_params is None:
+                return
+            params = self.fitted_params
+        self.fitting_function.set_roi_from_params(self.roi, params)
+
+    def update_roi_fit_dict(self):
+        self.roi.fitted_parameters = {}
+
+        if self.fitted_params is not None:
+            self.roi.fitted_parameters.update(dict(zip(self.param_names, self.fitted_params)))
+            self.roi.fitted_parameters['fitted_params'] = self.fitted_params
+            self.roi.fitted_parameters['fit_errors'] = self.fit_errors
+
+        self.roi.fitted_parameters['fitting_function'] = self.fitting_function.TYPE
+        self.roi.fitted_parameters['background'] = self.background.TYPE
+        self.roi.fitted_parameters['lower_bounds'] = self.lower_bounds
+        self.roi.fitted_parameters['init_params'] = self.init_params
+        self.roi.fitted_parameters['upper_bounds'] = self.upper_bounds
+        self.roi.fitted_parameters['r_range'] = self.r_range
+        self.roi.fitted_parameters['x_range'] = self.x_range
