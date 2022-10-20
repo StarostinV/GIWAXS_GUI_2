@@ -23,7 +23,7 @@ class AbstractRoiWidget(object):
 
     COLOR_DICT = dict(
         default=QColor(0, 0, 255),
-        active=QColor(0, 128, 255),
+        active=QColor(255, 100, 255),
         fixed=QColor(0, 255, 0),
         fixed_active=QColor(255, 0, 255)
     )

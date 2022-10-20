@@ -174,4 +174,4 @@ class Roi2DRing(AbstractRoiWidget, BasicRoiRing):
         pass
 
     def set_color(self, color):
-        self.setPen(color)
+        self.setPen(color=color, width=4)

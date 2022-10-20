@@ -65,7 +65,7 @@ class Roi2DRect(AbstractRoiWidget, RectROI):
         self.setPos(pos)
 
     def set_color(self, color):
-        self.setPen(color)
+        self.setPen(color=color, width=4)
 
     def set_movable(self, movable: bool):
         self.translatable = movable
