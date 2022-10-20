@@ -46,7 +46,8 @@ class FitHolder(object):
 
     def set_default_fit(self, roi):
         roi.fitted_parameters = {}
-        return self.init_fit_from_roi(roi)
+        self.fit = self.init_fit_from_roi(roi)
+        return self.fit
 
     def init_fit_from_roi(self, roi):
         if not roi.fitted_parameters:
@@ -59,7 +60,7 @@ class FitHolder(object):
             r1, r2 = params['r_range']
 
         x1, x2 = self._get_r_coords(r1), self._get_r_coords(r2)
-        x, y = self._get_x_y(roi, x1, x2)
+        x, y, x_profile, y_profile = self._get_x_y(roi, x1, x2)
 
         if 'background' in params:
             background: Background = BACKGROUNDS[params['background']]()
@@ -103,7 +104,10 @@ class FitHolder(object):
                   lower_bounds=lower_bounds, upper_bounds=upper_bounds,
                   fitted_params=fitted_params, fit_errors=fit_errors, fitting_curve=fitting_curve,
                   fitting_function=function, background=background,
-                  background_curve=background_curve, range_strategy=deepcopy(self.default_range_strategy))
+                  background_curve=background_curve, range_strategy=deepcopy(self.default_range_strategy),
+                  x_profile=x_profile, y_profile=y_profile)
+
+        fit.update_roi_fit_dict()
 
         return fit
 
@@ -152,7 +156,7 @@ class FitHolder(object):
         else:
             r1, r2 = fit.r_range
         x1, x2 = self._get_r_coords(r1), self._get_r_coords(r2)
-        fit.x, fit.y = self._get_x_y(fit.roi, x1, x2)
+        fit.x, fit.y, fit.x_profile, fit.y_profile = self._get_x_y(fit.roi, x1, x2)
 
         if update_fit:
             fit.update_fit(**kwargs)
@@ -164,19 +168,22 @@ class FitHolder(object):
         return min(r1, roi.radius - self.min_range / 2), max(r2, roi.radius + self.min_range / 2)
 
     def _get_x_y(self, roi: Roi, x1: int, x2: int):
-        x = self.r_axis[x1:x2]
+        x_profile = self.r_axis.copy()
+        x = x_profile[x1:x2]
 
         if not roi.has_fixed_angles():
-            y = self.r_profile[x1:x2]
+            y_profile = self.r_profile.copy()
         else:
             p1, p2 = self._get_p_coords(roi.angle - roi.angle_std / 2), \
                      self._get_p_coords(roi.angle + roi.angle_std / 2)
-            y = self.polar_image[max(0, p1):min(p2, self.phi_axis.size - 1), x1:x2].sum(axis=0)
+            y_profile = self.polar_image[max(0, p1):min(p2, self.phi_axis.size - 1)].sum(axis=0)
+
+        y = y_profile[x1:x2]
 
         if x.size != y.size:
             raise ValueError(f'x.size != y.size: {x.size} != {y.size}')
 
-        return x, y
+        return x, y, x_profile, y_profile
 
     def _get_r_coords(self, r):
         return int(round((r - self.r_axis.min()) / self.r_delta))

@@ -2,6 +2,7 @@ from copy import deepcopy
 from typing import List, Tuple, Iterable
 import logging
 
+import numpy as np
 from PyQt5.QtCore import pyqtSlot, pyqtSignal, QObject
 
 from .roi import Roi, RoiTypes
@@ -120,6 +121,40 @@ class RoiDict(QObject):
         self._meta_data.update_metadata(self._roi_data, self._current_key)
         if len(self._roi_data):
             self.sig_roi_created.emit(tuple(self.keys()))
+
+    @pyqtSlot()
+    def select_next(self):
+        sorted_keys, current_idx = self._select_by_order()
+        if not sorted_keys:
+            return
+        if current_idx == len(sorted_keys) - 1:
+            current_idx = -1
+
+        self.select(sorted_keys[current_idx + 1])
+
+    @pyqtSlot()
+    def select_previous(self):
+        sorted_keys, current_idx = self._select_by_order()
+        if not sorted_keys:
+            return
+        if current_idx == 0:
+            current_idx = len(sorted_keys)
+        self.select(sorted_keys[current_idx - 1])
+
+    def _select_by_order(self):
+        selected_rois = self.selected_rois
+        if len(selected_rois) != 1:
+            return None, None
+        selected_roi = selected_rois[0]
+        sorted_keys = self.get_sorted_keys()
+        current_idx = sorted_keys.index(selected_roi.key)
+        return sorted_keys, current_idx
+
+    def get_sorted_keys(self):
+        keys = list(self.keys())
+        indices = np.argsort([self[k].radius for k in keys])
+        sorted_keys = [keys[i] for i in indices]
+        return sorted_keys
 
     @property
     def selected_rois(self) -> List[Roi]:

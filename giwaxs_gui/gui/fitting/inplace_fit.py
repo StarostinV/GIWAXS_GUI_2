@@ -10,7 +10,7 @@ from PyQt5.QtGui import QColor
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject
 
 from ..roi_widgets.roi_1d_widget import Roi1D
-
+from ..roi_widgets.confidence_level_widget import ConfidenceOptionsList
 from ..roi_widgets import AbstractRoiWidget, AbstractRoiHolder
 from ...app.fitting import (
     Fit,
@@ -75,7 +75,11 @@ class RoiFitWidget(AbstractRoiHolder, QWidget):
     def _init_ui(self):
         self.fit_plot = FitPlot(self)
         self.sliders_widget = SlidersWidget(parent=self)
+        self.next_roi_btn = QPushButton('Next ROI', self)
+        self.prev_roi_btn = QPushButton('Previous ROI', self)
         self.fit_current_button = QPushButton(CurrentFitButtonStatus.fit.value, self)
+        self.confidence_list = ConfidenceOptionsList('Not set', self, horizontal=True)
+        self.update_bounds_btn = QPushButton('Update bounds', self)
 
         q_scroll_area = QScrollArea(self)
         q_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
@@ -90,8 +94,12 @@ class RoiFitWidget(AbstractRoiHolder, QWidget):
         )
         scroll_layout = QGridLayout(options_widget)
 
-        scroll_layout.addWidget(self.fit_current_button, 0, 0)
-        scroll_layout.addWidget(self.sliders_widget, 1, 0)
+        scroll_layout.addWidget(self.prev_roi_btn, 0, 0)
+        scroll_layout.addWidget(self.next_roi_btn, 0, 1)
+        scroll_layout.addWidget(self.fit_current_button, 1, 0, 1, 2)
+        scroll_layout.addWidget(self.update_bounds_btn, 2, 0, 1, 2)
+        scroll_layout.addWidget(self.confidence_list, 3, 0, 1, 2)
+        scroll_layout.addWidget(self.sliders_widget, 4, 0, 1, 2)
 
         q_splitter_h2 = QSplitter(orientation=Qt.Vertical, parent=self)
         q_splitter_h2.addWidget(self.fit_plot)
@@ -112,17 +120,37 @@ class RoiFitWidget(AbstractRoiHolder, QWidget):
         self.app.image_holder.sigEmptyImage.connect(self._clear)
         self.app.geometry_holder.sigScaleChanged.connect(self._update_data)
 
-        self.app.roi_dict.sig_roi_created.connect(self._update)
-        self.app.roi_dict.sig_roi_deleted.connect(self._update)
         self.app.roi_dict.sig_roi_moved.connect(self._update_move)
         self.app.roi_dict.sig_selected.connect(self._update)
         self.app.roi_dict.sig_one_selected.connect(self._update)
         self.app.roi_dict.sig_fixed.connect(self._fix)
         self.app.roi_dict.sig_unfixed.connect(self._unfix)
+        self.app.roi_dict.sigConfLevelChanged.connect(self._change_confidence)
 
+        self.next_roi_btn.clicked.connect(self.app.roi_dict.select_next)
+        self.prev_roi_btn.clicked.connect(self.app.roi_dict.select_previous)
         self.fit_current_button.clicked.connect(self._fit_current_clicked)
+        self.update_bounds_btn.clicked.connect(self._update_bounds_clicked)
         self.fit_plot.sigRangeUpdated.connect(self._range_changed)
         self.sliders_widget.sigValueChanged.connect(self._sliders_moved)
+        self.confidence_list.sigConfidenceChanged.connect(self._confidence_changed)
+
+    def _change_confidence(self):
+        if self.selected_fit:
+            self.confidence_list.set_level(self.selected_roi.confidence_level)
+
+    def _confidence_changed(self, level: float):
+        if self.selected_fit:
+            self.app.roi_dict.change_conf_level(self.selected_key, level)
+
+    def _update_bounds_clicked(self):
+        fit = self.selected_fit
+        if not fit:
+            return
+        fit = self.fit_holder.set_default_fit(fit.roi)
+        self.fit_plot.set_fit(fit)
+        self.sliders_widget.set_fit(fit)
+        self._emit_move_roi()
 
     def _sliders_moved(self):
         self.fit_holder.update_fit_data(update_bounds=False)
@@ -164,10 +192,12 @@ class RoiFitWidget(AbstractRoiHolder, QWidget):
 
     def _fix(self):
         self.sliders_widget.setEnabled(False)
+        self.update_bounds_btn.setEnabled(False)
         self.fit_current_button.setText(CurrentFitButtonStatus.unfix.value)
 
     def _unfix(self):
         self.sliders_widget.setEnabled(True)
+        self.update_bounds_btn.setEnabled(True)
         self.fit_current_button.setText(CurrentFitButtonStatus.fit.value)
 
     def _update_move(self, keys, name):
@@ -185,52 +215,56 @@ class RoiFitWidget(AbstractRoiHolder, QWidget):
             else:
                 self.fit_holder.new_fit(selected_roi)
 
-            if selected_roi.movable:
-                self._unfix()
-            else:
-                self._fix()
+            self._set_fit()
 
         else:
-            self.fit_holder.remove_fit()
+            self._clear()
 
+    def _set_fit(self):
         self.fit_plot.set_fit(self.selected_fit)
         self.sliders_widget.set_fit(self.selected_fit)
+        self.confidence_list.set_level(self.selected_roi.confidence_level)
+        if self.selected_roi.movable:
+            self._unfix()
+        else:
+            self._fix()
 
     def _clear(self):
-        self.sliders_widget.remove_fit()
         self.fit_holder.remove_fit()
+        self.sliders_widget.remove_fit()
         self.fit_plot.remove_fit()
+        self._fix()
 
 
-class ControlsWidget(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._init_ui()
-
-    def _init_ui(self):
-        self.functions_box = QComboBox(self)
-        self.background_box = QComboBox(self)
-
-        self.range_factor_slider = LabeledSlider('Y range factor', (0, 10), parent=self, decimals=2)
-        self.fit_current_button = QPushButton(CurrentFitButtonStatus.fit.value)
-        self.fit_current_button.clicked.connect(self._fit_current_clicked)
-        self.update_data_button = QPushButton('Update fit')
-        self.update_data_button.clicked.connect(self._update_data_button_clicked)
-
-        self.functions_box.currentTextChanged.connect(self._change_function)
-        self.background_box.currentTextChanged.connect(self._change_background)
-        self.range_strategies_box.currentTextChanged.connect(self._change_range_strategy)
-
-        self.functions_box.addItem('Fitting functions')
-        for t in FittingType:
-            self.functions_box.addItem(t.value)
-        self.background_box.addItem('Backgrounds')
-        for t in BackgroundType:
-            self.background_box.addItem(t.value)
-
-    def _connect(self):
-        self.fit_current_button.clicked.connect(self._fit_current_clicked)
-        self.range_factor_slider.valueChanged.connect(self._on_range_slider_moved)
+# class ControlsWidget(QWidget):
+#     def __init__(self, parent=None):
+#         super().__init__(parent)
+#         self._init_ui()
+#
+#     def _init_ui(self):
+#         self.functions_box = QComboBox(self)
+#         self.background_box = QComboBox(self)
+#
+#         self.range_factor_slider = LabeledSlider('Y range factor', (0, 10), parent=self, decimals=2)
+#         self.fit_current_button = QPushButton(CurrentFitButtonStatus.fit.value)
+#         self.fit_current_button.clicked.connect(self._fit_current_clicked)
+#         self.update_data_button = QPushButton('Update fit')
+#         self.update_data_button.clicked.connect(self._update_data_button_clicked)
+#
+#         self.functions_box.currentTextChanged.connect(self._change_function)
+#         self.background_box.currentTextChanged.connect(self._change_background)
+#         self.range_strategies_box.currentTextChanged.connect(self._change_range_strategy)
+#
+#         self.functions_box.addItem('Fitting functions')
+#         for t in FittingType:
+#             self.functions_box.addItem(t.value)
+#         self.background_box.addItem('Backgrounds')
+#         for t in BackgroundType:
+#             self.background_box.addItem(t.value)
+#
+#     def _connect(self):
+#         self.fit_current_button.clicked.connect(self._fit_current_clicked)
+#         self.range_factor_slider.valueChanged.connect(self._on_range_slider_moved)
 
 
 class CurrentFitButtonStatus(Enum):
@@ -247,9 +281,11 @@ class FitPlot(Custom1DPlot):
         super().__init__(parent=parent)
         self.fit: Fit = None
         self.fit_plot = self.plot_item.plot()
+        self.profile_plot = self.plot_item.plot()
         self.background_plot = self.plot_item.plot()
         self.fit_plot.setPen(get_pen(color='red', style=Qt.DashDotDotLine, width=4))
         self.background_plot.setPen(get_pen(color='blue', style=Qt.DashDotDotLine, width=4))
+        self.profile_plot.setPen(get_pen(color='white', style=Qt.DashDotDotLine, width=2))
 
         self.range_roi: Roi = Roi(radius=0, width=1, key=-1)
         self.range_widget: Roi1D = Roi1D(self.range_roi, enable_context=False)
@@ -284,6 +320,8 @@ class FitPlot(Custom1DPlot):
         if not self.fit:
             return
         try:
+            self.range_widget.show()
+            self.profile_plot.setData(self.fit.x_profile, self.fit.y_profile)
             self.plot.setData(self.fit.x, self.fit.y)
             self.fit_plot.setData(self.fit.x, self.fit.init_curve)
             if self.fit.background_curve is not None:
@@ -292,11 +330,21 @@ class FitPlot(Custom1DPlot):
                 self.background_plot.clear()
             if update_range:
                 self._update_range()
-                self.plot_item.autoRange()
+                self._set_range()
 
         except Exception as err:
             self.log.exception(err)
             self.clear_plot()
+
+    def _set_range(self, pad: float = 0.4):
+        if not self.fit:
+            return
+        dx = self.fit.x.max() - self.fit.x.min()
+        dy = self.fit.y.max() - self.fit.y.min()
+        self.plot_item.setRange(
+            xRange=[self.fit.x.min() - dx * pad, self.fit.x.max() + dx * pad],
+            yRange=[self.fit.y.min() - dy * pad, self.fit.y.max() + dy * pad]
+        )
 
     def remove_fit(self):
         self.fit = None
@@ -306,6 +354,8 @@ class FitPlot(Custom1DPlot):
         self.plot.clear()
         self.fit_plot.clear()
         self.background_plot.clear()
+        self.profile_plot.clear()
+        self.range_widget.hide()
         self.update()
 
 
