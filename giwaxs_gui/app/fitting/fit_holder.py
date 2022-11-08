@@ -1,6 +1,9 @@
 from typing import Type
 from copy import deepcopy
 
+import numpy as np
+from scipy.ndimage import gaussian_filter1d
+
 from ..app import App
 from .background import *
 from .functions import *
@@ -53,12 +56,64 @@ class FitHolder(object):
         if not roi.fitted_parameters:
             return self.set_default_fit(roi)
 
-        for k in ('init_params', 'lower_bounds', 'upper_bounds'):
+        for k in ('init_params', 'lower_bounds', 'upper_bounds', 'r_range'):
             if k in roi.fitted_parameters:
                 roi.fitted_parameters.pop(k)
 
         self.fit = self.init_fit_from_roi(roi)
         return self.fit
+
+    def set_roi_from_range(self):
+        if not self.fit:
+            return
+        self.fit.set_roi_from_range()
+        self.fit.roi.fitted_parameters = {'r_range': self.fit.r_range}
+        self.fit = self.init_fit_from_roi(self.fit.roi)
+
+    def set_auto_range(self, roi=None, rel_pad: float = 3., const_pad: float = 5.):
+        update_fit = not bool(roi)
+
+        if roi is None:
+            if self.fit is None:
+                return
+            roi = self.fit.roi
+
+        r1, r2 = self._get_r_range(roi, self.default_range_strategy.range_factor)
+        pad = np.abs(r2 - r1) * rel_pad + const_pad
+        r1_large, r2_large = r1 - pad, r2 + pad
+        x1, x2, x1l, x2l = (
+            self._get_r_coords(r1),
+            self._get_r_coords(r2),
+            self._get_r_coords(r1_large),
+            self._get_r_coords(r2_large),
+        )
+
+        x, y, x_profile, y_profile = self._get_x_y(roi, x1l, x2l)
+
+        y_size = y_profile.size
+        y_profile_corrected = y_profile - (
+                y_profile[0] + (y_profile[-1] - y_profile[0]) / y_size * np.linspace(0, y_size, y_size)
+        )
+
+        y_profile_corrected = gaussian_filter1d(y_profile_corrected, 2)
+
+        left_indices = np.where(np.diff(np.sign(np.diff(y_profile_corrected[x1l:x1]))))[0]
+        if left_indices.size:
+            x1l = x1l + left_indices[-1]
+
+        right_indices = np.where(np.diff(np.sign(np.diff(y_profile_corrected[x2:x2l]))))[0]
+        if right_indices.size:
+            x2l = x2 + right_indices[0]
+
+        r1, r2 = self._get_r_from_coords(np.array([x1l, x2l]))
+
+        roi.fitted_parameters = {}
+        roi.fitted_parameters['r_range'] = r1, r2
+        fit = self.init_fit_from_roi(roi)
+
+        if update_fit:
+            self.fit = fit
+        return fit
 
     def init_fit_from_roi(self, roi):
         if not roi.fitted_parameters:
@@ -197,9 +252,14 @@ class FitHolder(object):
         return x, y, x_profile, y_profile
 
     def _get_r_coords(self, r):
+        r = np.clip(r, self.r_axis.min(), self.r_axis.max())
         return int(round((r - self.r_axis.min()) / self.r_delta))
 
+    def _get_r_from_coords(self, x):
+        return x * self.r_delta + self.r_axis.min()
+
     def _get_p_coords(self, p):
+        p = np.clip(p, self.phi_axis.min(), self.phi_axis.max())
         return int(round((p - self.phi_axis.min()) / self.phi_delta))
 
     def _aspect_ratio(self):

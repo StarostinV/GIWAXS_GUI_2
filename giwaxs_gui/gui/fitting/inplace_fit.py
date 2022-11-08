@@ -78,8 +78,11 @@ class RoiFitWidget(AbstractRoiHolder, QWidget):
         self.next_roi_btn = QPushButton('Next ROI', self)
         self.prev_roi_btn = QPushButton('Previous ROI', self)
         self.fit_current_button = QPushButton(CurrentFitButtonStatus.fit.value, self)
+        self.auto_range_btn = QPushButton('Auto range', self)
+        self.update_params_by_range_btn = QPushButton('Update params by range', self)
+        self.auto_fit_btn = QPushButton('Fit all peaks', self)
         self.confidence_list = ConfidenceOptionsList('Not set', self, horizontal=True)
-        self.update_bounds_btn = QPushButton('Update bounds', self)
+        self.update_bounds_btn = QPushButton('Default range', self)
 
         q_scroll_area = QScrollArea(self)
         q_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
@@ -94,12 +97,15 @@ class RoiFitWidget(AbstractRoiHolder, QWidget):
         )
         scroll_layout = QGridLayout(options_widget)
 
-        scroll_layout.addWidget(self.prev_roi_btn, 0, 0)
-        scroll_layout.addWidget(self.next_roi_btn, 0, 1)
-        scroll_layout.addWidget(self.fit_current_button, 1, 0, 1, 2)
-        scroll_layout.addWidget(self.update_bounds_btn, 2, 0, 1, 2)
-        scroll_layout.addWidget(self.confidence_list, 3, 0, 1, 2)
-        scroll_layout.addWidget(self.sliders_widget, 4, 0, 1, 2)
+        scroll_layout.addWidget(self.auto_fit_btn, 0, 0, 1, 2)
+        scroll_layout.addWidget(self.prev_roi_btn, 1, 0)
+        scroll_layout.addWidget(self.next_roi_btn, 1, 1)
+        scroll_layout.addWidget(self.fit_current_button, 2, 0, 1, 2)
+        scroll_layout.addWidget(self.update_bounds_btn, 3, 0, 1, 1)
+        scroll_layout.addWidget(self.auto_range_btn, 3, 1, 1, 1)
+        scroll_layout.addWidget(self.update_params_by_range_btn, 4, 0, 1, 2)
+        scroll_layout.addWidget(self.confidence_list, 5, 0, 1, 2)
+        scroll_layout.addWidget(self.sliders_widget, 6, 0, 1, 2)
 
         q_splitter_h2 = QSplitter(orientation=Qt.Vertical, parent=self)
         q_splitter_h2.addWidget(self.fit_plot)
@@ -131,6 +137,9 @@ class RoiFitWidget(AbstractRoiHolder, QWidget):
         self.prev_roi_btn.clicked.connect(self.app.roi_dict.select_previous)
         self.fit_current_button.clicked.connect(self._fit_current_clicked)
         self.update_bounds_btn.clicked.connect(self._update_bounds_clicked)
+        self.update_params_by_range_btn.clicked.connect(self._update_params_by_range_clicked)
+        self.auto_fit_btn.clicked.connect(self._autofit_clicked)
+        self.auto_range_btn.clicked.connect(self._autorange_clicked)
         self.fit_plot.sigRangeUpdated.connect(self._range_changed)
         self.sliders_widget.sigValueChanged.connect(self._sliders_moved)
         self.confidence_list.sigConfidenceChanged.connect(self._confidence_changed)
@@ -142,6 +151,32 @@ class RoiFitWidget(AbstractRoiHolder, QWidget):
     def _confidence_changed(self, level: float):
         if self.selected_fit:
             self.app.roi_dict.change_conf_level(self.selected_key, level)
+
+    def _update_params_by_range_clicked(self):
+        if not self.selected_fit:
+            return
+        self.fit_holder.set_roi_from_range()
+        self._set_fit()
+        self._emit_move_roi()
+
+    def _autorange_clicked(self):
+        if not self.selected_fit:
+            return
+        self.fit_holder.set_auto_range()
+        self._set_fit()
+        self._emit_move_roi()
+
+    def _autofit_clicked(self):
+        for roi in self.app.roi_dict.values():
+            if roi.movable:
+                fit = self.fit_holder.set_auto_range(roi)
+                fit.do_fit()
+                fit.set_roi_from_params()
+                self.app.roi_dict.move_roi(roi.key, self._name)
+                self.app.roi_dict.fix_roi(roi.key)
+                if roi.key == self.selected_key:
+                    self.fit_holder.fit = fit
+                    self._set_fit()
 
     def _update_bounds_clicked(self):
         fit = self.selected_fit
@@ -193,11 +228,15 @@ class RoiFitWidget(AbstractRoiHolder, QWidget):
     def _fix(self):
         self.sliders_widget.setEnabled(False)
         self.update_bounds_btn.setEnabled(False)
+        self.auto_range_btn.setEnabled(False)
+        self.update_params_by_range_btn.setEnabled(False)
         self.fit_current_button.setText(CurrentFitButtonStatus.unfix.value)
 
     def _unfix(self):
         self.sliders_widget.setEnabled(True)
         self.update_bounds_btn.setEnabled(True)
+        self.auto_range_btn.setEnabled(True)
+        self.update_params_by_range_btn.setEnabled(True)
         self.fit_current_button.setText(CurrentFitButtonStatus.fit.value)
 
     def _update_move(self, keys, name):

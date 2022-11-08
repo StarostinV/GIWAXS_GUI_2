@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Tuple
+import logging
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -92,7 +93,8 @@ class Fit:
             self.update_roi_fit_dict()
             self.fitting_function.set_roi_from_params(self.roi, self.fitted_params)
 
-        except (ValueError, RuntimeError):
+        except (ValueError, RuntimeError) as err:
+            logging.exception(err)
             return
 
     def set_roi_from_params(self, params=None):
@@ -100,7 +102,15 @@ class Fit:
             if self.fitted_params is None:
                 return
             params = self.fitted_params
+            if not params:
+                return
         self.fitting_function.set_roi_from_params(self.roi, params)
+
+    def set_roi_from_range(self):
+        r1, r2 = self.r_range
+        roi = self.roi
+        roi.radius = (r1 + r2) / 2
+        roi.width = (r2 - r1) / 2
 
     def update_roi_fit_dict(self):
         self.roi.fitted_parameters = {}
