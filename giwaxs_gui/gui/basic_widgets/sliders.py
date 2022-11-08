@@ -604,7 +604,7 @@ class ParametersSlider(QWidget):
 
     @property
     def _length(self):
-        return self.width() - 2 * self._padding - 2 * self._rect_width
+        return abs(self.width() - 2 * self._padding - 2 * self._rect_width) + 1e-5
 
     @property
     def _range(self):

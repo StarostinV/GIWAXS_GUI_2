@@ -147,7 +147,7 @@ class RoiFitWidget(AbstractRoiHolder, QWidget):
         fit = self.selected_fit
         if not fit:
             return
-        fit = self.fit_holder.set_default_fit(fit.roi)
+        fit = self.fit_holder.set_default_bounds(fit.roi)
         self.fit_plot.set_fit(fit)
         self.sliders_widget.set_fit(fit)
         self._emit_move_roi()
@@ -211,7 +211,7 @@ class RoiFitWidget(AbstractRoiHolder, QWidget):
             selected_roi = selected_rois[0]
             key = selected_roi.key
             if key == self.selected_key:
-                self.fit_holder.update_fit_data(update_r_range=False)
+                self.fit_holder.update_fit_data()
             else:
                 self.fit_holder.new_fit(selected_roi)
 
@@ -339,11 +339,17 @@ class FitPlot(Custom1DPlot):
     def _set_range(self, pad: float = 0.4):
         if not self.fit:
             return
+        y_min, y_max = self.fit.y.min(), self.fit.y.max()
+        for curve in (self.fit.init_curve, self.fit.fitting_curve, self.fit.background_curve):
+            if curve is not None:
+                y_min = min(y_min, curve.min())
+                y_max = max(y_max, curve.max())
+
         dx = self.fit.x.max() - self.fit.x.min()
-        dy = self.fit.y.max() - self.fit.y.min()
+        dy = y_max - y_min
         self.plot_item.setRange(
             xRange=[self.fit.x.min() - dx * pad, self.fit.x.max() + dx * pad],
-            yRange=[self.fit.y.min() - dy * pad, self.fit.y.max() + dy * pad]
+            yRange=[y_min - dy * pad, y_max + dy * pad]
         )
 
     def remove_fit(self):
@@ -452,7 +458,8 @@ class SlidersWidget(QWidget):
         fit = self.fit
         for idx, (l, i, u) in enumerate(zip(fit.lower_bounds, fit.init_params, fit.upper_bounds)):
             try:
-                self._sliders[idx].setValues(l, i, u, new_range=(l, u))
+                lu = abs(u - l) / 2
+                self._sliders[idx].setValues(l, i, u, new_range=(l - lu, u + lu))
             except ValueError as err:
                 self.log.error(f'{self._param_labels[idx].text()} received wrong values.')
                 self.log.exception(err)

@@ -49,6 +49,17 @@ class FitHolder(object):
         self.fit = self.init_fit_from_roi(roi)
         return self.fit
 
+    def set_default_bounds(self, roi):
+        if not roi.fitted_parameters:
+            return self.set_default_fit(roi)
+
+        for k in ('init_params', 'lower_bounds', 'upper_bounds'):
+            if k in roi.fitted_parameters:
+                roi.fitted_parameters.pop(k)
+
+        self.fit = self.init_fit_from_roi(roi)
+        return self.fit
+
     def init_fit_from_roi(self, roi):
         if not roi.fitted_parameters:
             roi.fitted_parameters = {}
