@@ -256,12 +256,23 @@ class GIWAXSMainWindow(QMainWindow):
         self.fit_shortcut = QShortcut(QKeySequence('Ctrl+F'), self)
         self.fit_shortcut.activated.connect(lambda *x: self.app.roi_dict.open_fit_rois(True))
 
+        self.save_shortcut = QShortcut(QKeySequence('Ctrl+S'), self)
+        self.save_shortcut.activated.connect(self.save_state)
+
         def raise_err(*_):
             raise ValueError('Congratulations, you found an error combination used for testing! '
                              'Your project will be deleted in 3 seconds...')
 
         self.raise_shortcut = QShortcut(QKeySequence('Ctrl+R'), self)
         self.raise_shortcut.activated.connect(raise_err)
+
+    def save_state(self, *args):
+        self.app.save_state()
+        res = QMessageBox.information(
+            self, 'Image is saved',
+            'The fitted peaks are successfully saved to the project folder.',
+             QMessageBox.Ok
+        )
 
     def _init_toolbar(self):
 
