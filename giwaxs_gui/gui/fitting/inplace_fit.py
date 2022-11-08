@@ -171,7 +171,6 @@ class RoiFitWidget(AbstractRoiHolder, QWidget):
             if roi.movable:
                 fit = self.fit_holder.set_auto_range(roi)
                 fit.do_fit()
-                fit.set_roi_from_params()
                 self.app.roi_dict.move_roi(roi.key, self._name)
                 self.app.roi_dict.fix_roi(roi.key)
                 if roi.key == self.selected_key:
@@ -250,7 +249,7 @@ class RoiFitWidget(AbstractRoiHolder, QWidget):
             selected_roi = selected_rois[0]
             key = selected_roi.key
             if key == self.selected_key:
-                self.fit_holder.update_fit_data()
+                self.fit_holder.update_fit_data(update_r_range=selected_roi.movable)
             else:
                 self.fit_holder.new_fit(selected_roi)
 

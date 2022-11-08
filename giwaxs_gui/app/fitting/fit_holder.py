@@ -97,11 +97,11 @@ class FitHolder(object):
 
         y_profile_corrected = gaussian_filter1d(y_profile_corrected, 2)
 
-        left_indices = np.where(np.diff(np.sign(np.diff(y_profile_corrected[x1l:x1]))))[0]
+        left_indices = np.where(np.diff(np.sign(np.diff(y_profile_corrected[x1l:x1]))) > 0)[0]
         if left_indices.size:
             x1l = x1l + left_indices[-1]
 
-        right_indices = np.where(np.diff(np.sign(np.diff(y_profile_corrected[x2:x2l]))))[0]
+        right_indices = np.where(np.diff(np.sign(np.diff(y_profile_corrected[x2:x2l]))) > 0)[0]
         if right_indices.size:
             x2l = x2 + right_indices[0]
 
