@@ -608,7 +608,7 @@ class ParametersSlider(QWidget):
 
     @property
     def _range(self):
-        return self._max_value - self._min_value
+        return abs(self._max_value - self._min_value) + 1e-5
 
     def _scale_to_view(self, x, idx: int):
         return self._padding + self._rect_width * (idx - 1) + \
